@@ -12,6 +12,8 @@ from enum import IntEnum
 from pathlib import Path
 from typing import Self
 
+from isynspec.utils.fortio import FortFloat, FortranReader
+
 
 class OperationMode(IntEnum):
     """Basic mode of operation for SYNSPEC."""
@@ -170,7 +172,7 @@ class Fort55:
                 f.write(f"{self.nmu0} {self.ang0} {self.iflux}\n")
 
     @classmethod
-    def read(cls, path: Path) -> Self:
+    def read(cls, path: Path) -> Self:  # noqa: C901 (We are imitating complex parsing)
         """Read configuration from fort.55 file.
 
         Args:
@@ -183,31 +185,67 @@ class Fort55:
             ValueError: If file format is invalid
         """
         with open(path) as f:
-            lines = f.readlines()
+            reader = FortranReader(f.read())
 
         try:
             # Basic operation parameters
-            imode, idstd, iprin = map(int, lines[0].split())
+            imode = int(next(reader))
+            idstd = int(next(reader))
+            iprin = int(next(reader))
 
             # Model parameters
-            inmod, intrpl, ichang, ichemc = map(int, lines[1].split())
+            inmod = int(next(reader))
+            intrpl = int(next(reader))
+            ichang = int(next(reader))
+            ichemc = int(next(reader))
 
             # Line physics parameters
-            iophli, nunalp, nunbet, nungam, nunbal = map(int, lines[2].split())
-            ifreq, inlte, icontl, inlist, ifhe2 = map(int, lines[3].split())
-            ihydpr, ihe1pr, ihe2pr = map(int, lines[4].split())
+            iophli = int(next(reader))
+            nunalp = int(next(reader))
+            nunbet = int(next(reader))
+            nungam = int(next(reader))
+            nunbal = int(next(reader))
+
+            # More line physics parameters
+            ifreq = int(next(reader))
+            inlte = int(next(reader))
+            icontl = int(next(reader))
+            inlist = int(next(reader))
+            ifhe2 = int(next(reader))
+
+            # Line profile parameters
+            ihydpr = int(next(reader))
+            ihe1pr = int(next(reader))
+            ihe2pr = int(next(reader))
 
             # Wavelength parameters
-            alam0, alast, cutof0, cutofs, relop, space = map(float, lines[5].split())
+            alam0 = float(FortFloat(next(reader)).value)
+            alast = float(FortFloat(next(reader)).value)
+            cutof0 = float(FortFloat(next(reader)).value)
+            cutofs = float(FortFloat(next(reader)).value)
+            relop = float(FortFloat(next(reader)).value)
+            space = float(FortFloat(next(reader)).value)
 
-            # Molecular lines - handle special case of "0 0i" notation
-            nmlist_line = lines[6].strip()
-            if nmlist_line == "0 0i":
-                iunitm = []
-            else:
-                parts = list(map(int, nmlist_line.split()))
-                # Skip the first number (nmlist) as it's now computed from iunitm
-                iunitm = parts[1:] if parts[1:] else []
+            # Molecular lines
+            iunitm = []
+            try:
+                nmlist = int(next(reader))
+                if nmlist > 0:
+                    for _ in range(nmlist):
+                        try:
+                            iunitm.append(int(next(reader)))
+                        except StopIteration:
+                            break
+                else:
+                    # For nmlist=0, expect a "0i" field
+                    try:
+                        field = next(reader)
+                        if not field.lower().endswith("i"):
+                            raise ValueError("Expected '0i' for zero molecular lines")
+                    except StopIteration:
+                        pass
+            except StopIteration:
+                pass
 
             # Optional parameters
             vtb = None
@@ -215,22 +253,17 @@ class Fort55:
             ang0 = None
             iflux = 0
 
-            current_line = 7
-            if current_line < len(lines):  # vtb line present
-                try:
-                    vtb = float(lines[current_line])
-                    current_line += 1
-                except ValueError:
-                    pass  # Not a vtb line
+            try:
+                vtb = float(FortFloat(next(reader)).value)
+            except StopIteration:
+                pass
 
-            if current_line < len(lines):  # angle parameters present
-                try:
-                    tokens = lines[current_line].split()
-                    nmu0 = int(tokens[0])
-                    ang0 = float(tokens[1])
-                    iflux = int(tokens[2])
-                except (ValueError, IndexError):
-                    pass  # Not angle parameters
+            try:
+                nmu0 = int(next(reader))
+                ang0 = float(FortFloat(next(reader)).value)
+                iflux = int(next(reader))
+            except StopIteration:
+                pass
 
             return cls(
                 imode=OperationMode(imode),
@@ -266,5 +299,5 @@ class Fort55:
                 iflux=iflux,
             )
 
-        except (ValueError, IndexError) as e:
+        except (ValueError, IndexError, StopIteration) as e:
             raise ValueError(f"Invalid fort.55 file format: {e}")
