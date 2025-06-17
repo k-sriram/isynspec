@@ -51,8 +51,7 @@ def test_fort55_config_full():
         nmu0=3,
         ang0=0.1,
         iflux=1,
-        iunitm=[20, 21],
-        nmlist=2,
+        iunitm=[20, 21],  # nmlist will be 2 based on length of iunitm
     )
 
     # Check custom values
@@ -124,18 +123,29 @@ def test_invalid_wavelength_range():
         )
 
 
-def test_invalid_molecular_config():
-    """Test validation of molecular line list configuration."""
-    with pytest.raises(ValueError):
-        Fort55(
-            alam0=4000.0,
-            alast=4100.0,
-            cutof0=0.001,
-            relop=1e-4,
-            space=0.01,
-            nmlist=2,  # Specified 2 lists
-            iunitm=[20],  # But only provided 1 unit number
-        )
+def test_molecular_line_lists():
+    """Test molecular line list handling."""
+    config = Fort55(
+        alam0=4000.0,
+        alast=4100.0,
+        cutof0=0.001,
+        relop=1e-4,
+        space=0.01,
+        iunitm=[20, 21, 22],  # Three molecular line lists
+    )
+
+    # nmlist should reflect the length of iunitm
+    assert config.nmlist == 3
+
+    # Test with empty list
+    config2 = Fort55(
+        alam0=4000.0,
+        alast=4100.0,
+        cutof0=0.001,
+        relop=1e-4,
+        space=0.01,
+    )
+    assert config2.nmlist == 0
 
 
 def test_invalid_ang0_without_vtb():

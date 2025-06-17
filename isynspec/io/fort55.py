@@ -86,10 +86,14 @@ class Fort55:
     cutofs: float = 0.0  # Dummy variable
 
     # Molecular line parameters
-    nmlist: int = 0  # Number of additional molecular line lists
     iunitm: list[int] = field(
         default_factory=list
     )  # Unit numbers for molecular line lists
+
+    @property
+    def nmlist(self) -> int:
+        """Number of additional molecular line lists."""
+        return len(self.iunitm)
 
     # Optional parameters
     vtb: float | None = None  # Turbulent velocity [km/s]
@@ -99,24 +103,21 @@ class Fort55:
 
     def __post_init__(self) -> None:
         """Post-initialization checks for fort.55 parameters."""
+        self.validate_parameters()
+
+    def validate_parameters(self) -> None:
+        """Validate fort.55 parameters."""
         if self.alam0 > abs(self.alast):
             raise ValueError(
                 f"alam0 ({self.alam0}) must be less than or equal to alast "
                 f"({self.alast})"
             )
-        if self.nmlist < 0:
-            raise ValueError(f"nmlist ({self.nmlist}) cannot be negative")
         if self.nmu0 < 0:
             raise ValueError(f"nmu0 ({self.nmu0}) cannot be negative")
         if self.vtb is None and self.nmu0 > 0:
             raise ValueError("vtb must be specified when nmu0 > 0")
         if self.ang0 is None and self.nmu0 > 0:
             raise ValueError("ang0 must be specified when nmu0 > 0")
-        if self.nmlist > 0 and len(self.iunitm) != self.nmlist:
-            raise ValueError(
-                f"iunitm length ({len(self.iunitm)}) must match nmlist value "
-                f"({self.nmlist})"
-            )
 
     def write(self, path: Path) -> None:
         """Write configuration to fort.55 file.
@@ -124,6 +125,7 @@ class Fort55:
         Args:
             path: Path where fort.55 should be written
         """
+        self.validate_parameters()
         with open(path, "w") as f:
             # Basic operation parameters
             f.write(f"{self.imode.value} {self.idstd} {self.iprin}\n")
@@ -155,11 +157,6 @@ class Fort55:
 
             # Molecular lines
             if self.nmlist > 0:
-                if len(self.iunitm) != self.nmlist:
-                    raise ValueError(
-                        f"iunitm length ({len(self.iunitm)}) must match nmlist value "
-                        f"({self.nmlist})"
-                    )
                 units_str = " ".join(str(u) for u in self.iunitm)
                 f.write(f"{self.nmlist} {units_str}\n")
             else:
@@ -170,10 +167,6 @@ class Fort55:
                 f.write(f"{self.vtb}\n")
 
             if self.nmu0 > 0:
-                if self.vtb is None:
-                    raise ValueError("vtb must be specified when nmu0 > 0")
-                if self.ang0 is None:
-                    raise ValueError("ang0 must be specified when nmu0 > 0")
                 f.write(f"{self.nmu0} {self.ang0} {self.iflux}\n")
 
     @classmethod
@@ -210,11 +203,10 @@ class Fort55:
             # Molecular lines - handle special case of "0 0i" notation
             nmlist_line = lines[6].strip()
             if nmlist_line == "0 0i":
-                nmlist = 0
                 iunitm = []
             else:
                 parts = list(map(int, nmlist_line.split()))
-                nmlist = parts[0]
+                # Skip the first number (nmlist) as it's now computed from iunitm
                 iunitm = parts[1:] if parts[1:] else []
 
             # Optional parameters
@@ -267,7 +259,6 @@ class Fort55:
                 cutofs=cutofs,
                 relop=relop,
                 space=space,
-                nmlist=nmlist,
                 iunitm=iunitm,
                 vtb=vtb,
                 nmu0=nmu0,
