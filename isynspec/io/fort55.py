@@ -97,6 +97,27 @@ class Fort55:
     ang0: float | None = None  # Minimum angle cosine
     iflux: int = 0  # Specific intensities calculation flag
 
+    def __post_init__(self) -> None:
+        """Post-initialization checks for fort.55 parameters."""
+        if self.alam0 > abs(self.alast):
+            raise ValueError(
+                f"alam0 ({self.alam0}) must be less than or equal to alast "
+                f"({self.alast})"
+            )
+        if self.nmlist < 0:
+            raise ValueError(f"nmlist ({self.nmlist}) cannot be negative")
+        if self.nmu0 < 0:
+            raise ValueError(f"nmu0 ({self.nmu0}) cannot be negative")
+        if self.vtb is None and self.nmu0 > 0:
+            raise ValueError("vtb must be specified when nmu0 > 0")
+        if self.ang0 is None and self.nmu0 > 0:
+            raise ValueError("ang0 must be specified when nmu0 > 0")
+        if self.nmlist > 0 and len(self.iunitm) != self.nmlist:
+            raise ValueError(
+                f"iunitm length ({len(self.iunitm)}) must match nmlist value "
+                f"({self.nmlist})"
+            )
+
     def write(self, path: Path) -> None:
         """Write configuration to fort.55 file.
 
@@ -122,6 +143,11 @@ class Fort55:
             f.write(f"{self.ihydpr} {self.ihe1pr} {self.ihe2pr}\n")
 
             # Wavelength parameters
+            if self.alam0 > abs(self.alast):
+                raise ValueError(
+                    f"alam0({self.alam0}) must be less than or equal to "
+                    f"alast({self.alast})"
+                )
             f.write(
                 f"{self.alam0} {self.alast} {self.cutof0} {self.cutofs} {self.relop} "
                 f"{self.space}\n"
@@ -129,6 +155,11 @@ class Fort55:
 
             # Molecular lines
             if self.nmlist > 0:
+                if len(self.iunitm) != self.nmlist:
+                    raise ValueError(
+                        f"iunitm length ({len(self.iunitm)}) must match nmlist value "
+                        f"({self.nmlist})"
+                    )
                 units_str = " ".join(str(u) for u in self.iunitm)
                 f.write(f"{self.nmlist} {units_str}\n")
             else:
