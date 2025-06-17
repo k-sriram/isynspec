@@ -148,16 +148,16 @@ def test_molecular_line_lists():
     assert config2.nmlist == 0
 
 
-def test_invalid_ang0_without_vtb():
-    """Test that setting ang0 without vtb raises an error."""
-    with pytest.raises(ValueError, match="ang0 cannot be set without setting vtb"):
+def test_invalid_nmu0_without_vtb():
+    """Test that setting nmu0 without vtb raises an error."""
+    with pytest.raises(ValueError):
         Fort55(
             alam0=4000.0,
             alast=4100.0,
             cutof0=0.001,
             relop=1e-4,
             space=0.01,
-            ang0=0.1,  # Setting ang0 without vtb should raise an error
+            nmu0=3,  # Setting nmu0 without vtb should raise an error
         )
 
 
