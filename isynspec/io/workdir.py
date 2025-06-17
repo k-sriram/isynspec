@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
 from types import TracebackType
-from typing import Optional, Self, Type
+from typing import Self, Type
 
 import platformdirs
 
@@ -120,9 +120,9 @@ class WorkingDirectory:
 
     def __exit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
+        exc_type: Type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> None:
         """Context manager exit with cleanup."""
         self.cleanup()

@@ -233,7 +233,7 @@ class FortranReader:
         self.text = text.strip()
         self.pos = 0
 
-    def __iter__(self) -> "FortranReader":
+    def __iter__(self) -> Self:
         """Return self as iterator."""
         return self
 

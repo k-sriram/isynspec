@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import TracebackType
-from typing import Optional, Type
+from typing import Self, Type
 
 from .io.workdir import WorkingDirConfig, WorkingDirectory, WorkingDirStrategy
 
@@ -17,7 +17,7 @@ class ISynspecConfig:
         working_dir_config: Configuration for working directory management
     """
 
-    synspec_path: Optional[Path] = None
+    synspec_path: Path | None = None
     working_dir_config: WorkingDirConfig = field(
         default_factory=lambda: WorkingDirConfig(strategy=WorkingDirStrategy.CURRENT)
     )
@@ -36,14 +36,14 @@ class ISynspecSession:
         ...     spectrum = synspec.calculate_spectrum()
     """
 
-    def __init__(self, config: Optional[ISynspecConfig] = None) -> None:
+    def __init__(self, config: ISynspecConfig | None = None) -> None:
         """Initialize a new SYNSPEC session.
 
         Args:
             config: Configuration options for the session
         """
         self.config = config if config is not None else ISynspecConfig()
-        self._working_dir: Optional[WorkingDirectory] = None
+        self._working_dir: WorkingDirectory | None = None
 
         # Validate and locate SYNSPEC executable
         self._executable = self._find_synspec_executable()
@@ -116,16 +116,16 @@ class ISynspecSession:
             self._working_dir.cleanup()
             self._working_dir = None
 
-    def __enter__(self) -> "ISynspecSession":
+    def __enter__(self) -> Self:
         """Initialize the session when entering context."""
         self.init()
         return self
 
     def __exit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
+        exc_type: Type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> None:
         """Clean up when exiting context."""
         self.cleanup()
