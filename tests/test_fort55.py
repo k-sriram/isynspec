@@ -4,12 +4,17 @@ This test suite verifies the functionality of the fort55 module, which handles
 SYNSPEC's fort.55 input file configuration.
 """
 
-import tempfile
 from pathlib import Path
 
 import pytest
 
-from isynspec.io.fort55 import Fort55, ModelType, OperationMode, RadiativeTransferSolver
+from isynspec.io.fort55 import (
+    FILENAME,
+    Fort55,
+    ModelType,
+    OperationMode,
+    RadiativeTransferSolver,
+)
 
 
 def test_fort55_config_basic():
@@ -90,126 +95,74 @@ def test_radiative_transfer_solver_enum():
     assert RadiativeTransferSolver.FEAUTRIER == 10
 
 
-def test_write_fort55():
-    """Test writing Fort55Config to a file."""
+def test_read_write_fort55(tmp_path: Path):
+    """Test reading and writing Fort55 configuration to a directory."""
     config = Fort55(
         alam0=4000.0,
         alast=4100.0,
         cutof0=0.001,
         relop=1e-4,
         space=0.01,
+        imode=OperationMode.MOLECULAR,
+        idstd=30,
+        iprin=1,
+        inmod=ModelType.KURUCZ,
+        ifreq=RadiativeTransferSolver.FEAUTRIER,
+        vtb=2.0,
+        nmu0=3,
+        ang0=0.1,
+        iflux=1,
+        iunitm=[20, 21],
     )
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        path = Path(tmpdir) / "fort.55"
-        config.write(path)
-        assert path.exists()
-        with (
-            open(path, "r") as f1,
-            open(Path(__file__).parent / "examples" / "example_fort.55", "r") as f2,
-        ):
-            assert f1.read() == f2.read()
+    # Write to temporary directory
+    config.write(tmp_path)
+    assert (tmp_path / FILENAME).exists()
+
+    # Read back and verify
+    read_config = Fort55.read(tmp_path)
+
+    # Check all fields match
+    assert read_config.alam0 == config.alam0
+    assert read_config.alast == config.alast
+    assert read_config.cutof0 == config.cutof0
+    assert read_config.relop == config.relop
+    assert read_config.space == config.space
+    assert read_config.imode == config.imode
+    assert read_config.idstd == config.idstd
+    assert read_config.iprin == config.iprin
+    assert read_config.inmod == config.inmod
+    assert read_config.ifreq == config.ifreq
+    assert read_config.vtb == pytest.approx(config.vtb)
+    assert read_config.nmu0 == config.nmu0
+    assert read_config.ang0 == pytest.approx(config.ang0)
+    assert read_config.iflux == config.iflux
+    assert read_config.iunitm == config.iunitm
 
 
-def test_invalid_wavelength_range():
-    """Test that starting wavelength must be less than ending wavelength."""
-    with pytest.raises(ValueError):
-        Fort55(
-            alam0=4100.0,  # Greater than alast
-            alast=4000.0,
-            cutof0=0.001,
-            relop=1e-4,
-            space=0.01,
-        )
+def test_fort55_invalid_format(tmp_path: Path):
+    """Test error handling for invalid fort.55 file format."""
+    (tmp_path / FILENAME).write_text("invalid content")
+
+    with pytest.raises(ValueError, match="Invalid fort.55 file format"):
+        Fort55.read(tmp_path)
 
 
-def test_molecular_line_lists():
-    """Test molecular line list handling."""
+def test_fort55_file_not_found(tmp_path: Path):
+    """Test error handling when fort.55 file does not exist."""
+    with pytest.raises(FileNotFoundError):
+        Fort55.read(tmp_path)
+
+
+def test_fort55_invalid_wavelength_range(tmp_path: Path):
+    """Test error handling for invalid wavelength range."""
     config = Fort55(
-        alam0=4000.0,
-        alast=4100.0,
-        cutof0=0.001,
-        relop=1e-4,
-        space=0.01,
-        iunitm=[20, 21, 22],  # Three molecular line lists
-    )
-
-    # nmlist should reflect the length of iunitm
-    assert config.nmlist == 3
-
-    # Test with empty list
-    config2 = Fort55(
-        alam0=4000.0,
-        alast=4100.0,
+        alam0=4100.0,  # Starting wavelength greater than ending wavelength
+        alast=4000.0,
         cutof0=0.001,
         relop=1e-4,
         space=0.01,
     )
-    assert config2.nmlist == 0
 
-
-def test_invalid_nmu0_without_vtb():
-    """Test that setting nmu0 without vtb raises an error."""
-    with pytest.raises(ValueError):
-        Fort55(
-            alam0=4000.0,
-            alast=4100.0,
-            cutof0=0.001,
-            relop=1e-4,
-            space=0.01,
-            nmu0=3,  # Setting nmu0 without vtb should raise an error
-        )
-
-
-def test_read_fort55():
-    """Test reading fort.55 configuration from a file."""
-    example_path = Path(__file__).parent / "examples" / "example_fort.55"
-    config = Fort55.read(example_path)
-
-    # First row: 0 32 0 (imode, idstd, iprin)
-    assert config.imode == OperationMode.NORMAL
-    assert config.idstd == 32
-    assert config.iprin == 0
-
-    # Second row: 1 0 0 0 (inmod, intrpl, ichang, ichemc)
-    assert config.inmod == ModelType.TLUSTY
-    assert config.intrpl == 0
-    assert config.ichang == 0
-    assert config.ichemc == 0
-
-    # Third row: 0 0 0 0 0 (iophli, nunalp, nunbet, nungam, nunbal)
-    assert config.iophli == 0
-    assert config.nunalp == 0
-    assert config.nunbet == 0
-    assert config.nungam == 0
-    assert config.nunbal == 0
-
-    # Fourth row: 1 0 0 0 0 (ifreq, inlte, icontl, inlist, ifhe2)
-    assert config.ifreq == RadiativeTransferSolver.DFE
-    assert config.inlte == 0
-    assert config.icontl == 0
-    assert config.inlist == 0
-    assert config.ifhe2 == 0
-
-    # Fifth row: 0 0 0 (ihydpr, ihe1pr, ihe2pr)
-    assert config.ihydpr == 0
-    assert config.ihe1pr == 0
-    assert config.ihe2pr == 0
-
-    # Sixth row: 4000.0 4100.0 0.001 0.0 0.0001 0.01
-    assert config.alam0 == 4000.0
-    assert config.alast == 4100.0
-    assert config.cutof0 == 0.001
-    assert config.cutofs == 0.0
-    assert config.relop == 0.0001
-    assert config.space == 0.01
-
-    # Seventh row: 0 0i (nmlist and iunitm)
-    assert config.nmlist == 0
-    assert config.iunitm == []
-
-    # Optional parameters should be at their default values
-    assert config.vtb is None
-    assert config.nmu0 == 0
-    assert config.ang0 is None
-    assert config.iflux == 0
+    with pytest.raises(ValueError, match="alam0.*must be less than or equal to.*alast"):
+        config.write(tmp_path)

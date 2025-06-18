@@ -96,12 +96,11 @@ def test_fort19_read_write(tmp_path, basic_lines):
     # Create a Fort19 instance
     fort19 = Fort19(basic_lines)
 
-    # Write to a temporary file
-    test_file = tmp_path / "fort.19"
-    fort19.write(test_file)
+    # Write to temporary directory
+    fort19.write(tmp_path)
 
     # Read it back
-    fort19_read = Fort19.read(test_file)
+    fort19_read = Fort19.read(tmp_path)
 
     # Compare the lines
     assert len(fort19_read.lines) == len(fort19.lines)
@@ -123,12 +122,11 @@ def test_fort19_read_write_stark(tmp_path, stark_lines):
     # Create a Fort19 instance
     fort19 = Fort19(stark_lines)
 
-    # Write to a temporary file
-    test_file = tmp_path / "fort.19"
-    fort19.write(test_file)
+    # Write to temporary directory
+    fort19.write(tmp_path)
 
     # Read it back
-    fort19_read = Fort19.read(test_file)
+    fort19_read = Fort19.read(tmp_path)
 
     # Compare the lines
     assert len(fort19_read.lines) == len(fort19.lines)
@@ -155,8 +153,7 @@ def test_fort19_read_write_stark(tmp_path, stark_lines):
 def test_fort19_read(tmp_path):
     """Test reading a real fort.19 file in NEW format."""
     # Create a fort.19 file with real format data
-    test_file = tmp_path / "fort.19"
-    with open(test_file, "w") as f:
+    with open(tmp_path / "fort.19", "w") as f:
         # Example from SYNSPEC documentation, NEW format
         # Values: He I line at 388.8646 nm
         f.write(
@@ -170,8 +167,8 @@ def test_fort19_read(tmp_path):
             "-5.12  -7.71\n"
         )
 
-    # Read the file
-    fort19 = Fort19.read(test_file)
+    # Read the directory containing the file
+    fort19 = Fort19.read(tmp_path)
 
     # Check the first line (He I with Stark broadening)
     line1 = fort19.lines[0]

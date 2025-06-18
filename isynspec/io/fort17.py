@@ -4,6 +4,7 @@ This module provides functionality for reading SYNSPEC fort.17 files,
 which contain continuum flux data.
 """
 
+from pathlib import Path
 from typing import Self, TypeAlias
 
 import numpy as np
@@ -39,11 +40,11 @@ class Fort17:
         self.flux = flux
 
     @classmethod
-    def read(cls, file_path: str) -> Self:
-        """Create a Fort17 instance by reading from a file.
+    def read(cls, directory: Path) -> Self:
+        """Create a Fort17 instance by reading from a fort.17 file.
 
         Args:
-            file_path: Path to the fort.17 file
+            directory: Path to the directory containing the fort.17 file
 
         Returns:
             Fort17: A new Fort17 instance containing the wavelength and flux data
@@ -52,6 +53,7 @@ class Fort17:
             ValueError: If the file doesn't contain valid data or has wrong format
             FileNotFoundError: If the file doesn't exist
         """
+        file_path = directory / "fort.17"
         try:
             data = np.loadtxt(file_path, unpack=True)
             if len(data) != 2:

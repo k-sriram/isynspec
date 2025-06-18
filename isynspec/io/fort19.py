@@ -4,6 +4,7 @@ This module provides functionality for reading and writing SYNSPEC fort.19 files
 which contain spectral line data in the inilin format.
 """
 
+from pathlib import Path
 from typing import Self
 
 from isynspec.io.line import Line
@@ -25,15 +26,20 @@ class Fort19:
         self.lines = lines
 
     @classmethod
-    def read(cls, file_path: str) -> Self:
-        """Create a Fort19 instance by reading from a file.
+    def read(cls, directory: Path) -> Self:
+        """Create a Fort19 instance by reading from a fort.19 file.
 
         Args:
-            file_path: Path to the fort.19 file
+            directory: Path to the directory containing the fort.19 file
 
         Returns:
             Fort19: A new Fort19 instance containing the lines from the file
+
+        Raises:
+            ValueError: If the file format is invalid
+            FileNotFoundError: If the file doesn't exist
         """
+        file_path = directory / "fort.19"
         lines = []
         with open(file_path, "r") as f:
             lines_iter = iter(f.readlines())
@@ -45,12 +51,15 @@ class Fort19:
 
         return cls(lines)
 
-    def write(self, file_path: str) -> None:
-        """Write the Fort19 instance to a file.
+    def write(self, directory: Path) -> None:
+        """Write the Fort19 instance to a fort.19 file.
 
         Args:
-            file_path: Path where the fort.19 file should be written
+            directory: Path to the directory where the fort.19 file should be written
+
+        Raises:
+            OSError: If the file cannot be written
         """
-        with open(file_path, "w") as f:
+        with open(directory / "fort.19", "w") as f:
             for line in self.lines:
                 f.write(str(line))

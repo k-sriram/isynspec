@@ -4,6 +4,7 @@ This module provides functionality for reading SYNSPEC fort.7 files,
 which contain spectral flux data.
 """
 
+from pathlib import Path
 from typing import Self, TypeAlias
 
 import numpy as np
@@ -39,11 +40,11 @@ class Fort7:
         self.flux = flux
 
     @classmethod
-    def read(cls, file_path: str) -> Self:
-        """Create a Fort7 instance by reading from a file.
+    def read(cls, directory: Path) -> Self:
+        """Create a Fort7 instance by reading from a fort.7 file.
 
         Args:
-            file_path: Path to the fort.7 file
+            directory: Path to the directory containing the fort.7 file
 
         Returns:
             Fort7: A new Fort7 instance containing the wavelength and flux data
@@ -52,6 +53,7 @@ class Fort7:
             ValueError: If the file doesn't contain valid data or has wrong format
             FileNotFoundError: If the file doesn't exist
         """
+        file_path = directory / "fort.7"
         try:
             data = np.loadtxt(file_path, unpack=True)
             if len(data) != 2:

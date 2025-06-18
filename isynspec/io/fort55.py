@@ -10,9 +10,11 @@ Reference: SYNSPEC documentation
 from dataclasses import dataclass, field
 from enum import IntEnum
 from pathlib import Path
-from typing import Self
+from typing import Optional, Self
 
 from isynspec.utils.fortio import FortFloat, FortranReader
+
+FILENAME = "fort.55"
 
 
 class OperationMode(IntEnum):
@@ -46,8 +48,9 @@ class Fort55:
 
     All parameter names match those in SYNSPEC source code for clarity.
     Default values are set for typical use cases.
-    """  # Wavelength and line selection parameters (required)
+    """
 
+    # Wavelength and line selection parameters (required)
     alam0: float  # Starting wavelength [Å]
     alast: float  # Ending wavelength [Å], negative for vacuum wavelengths
     cutof0: float  # Line opacity cutoff [Å] (except H, HeII)
@@ -88,65 +91,63 @@ class Fort55:
     cutofs: float = 0.0  # Dummy variable
 
     # Molecular line parameters
-    iunitm: list[int] = field(
-        default_factory=list
-    )  # Unit numbers for molecular line lists
+    # Unit numbers for molecular line lists
+    iunitm: list[int] = field(default_factory=list)
+
+    # Optional parameters
+    vtb: Optional[float] = None  # Microturbulent velocity [km/s]
+    nmu0: int = 0  # Number of emission angles
+    ang0: Optional[float] = None  # Angle for specific intensity
+    iflux: int = 0  # Flux integration flag
 
     @property
     def nmlist(self) -> int:
         """Number of additional molecular line lists."""
         return len(self.iunitm)
 
-    # Optional parameters
-    vtb: float | None = None  # Turbulent velocity [km/s]
-    nmu0: int = 0  # Number of angle points for specific intensities
-    ang0: float | None = None  # Minimum angle cosine
-    iflux: int = 0  # Specific intensities calculation flag
-
-    def __post_init__(self) -> None:
-        """Post-initialization checks for fort.55 parameters."""
-        self.validate_parameters()
-
-    def validate_parameters(self) -> None:
-        """Validate fort.55 parameters."""
-        if self.alam0 > abs(self.alast):
-            raise ValueError(
-                f"alam0 ({self.alam0}) must be less than or equal to alast "
-                f"({self.alast})"
-            )
-        if self.nmu0 < 0:
-            raise ValueError(f"nmu0 ({self.nmu0}) cannot be negative")
-        if self.vtb is None and self.nmu0 > 0:
-            raise ValueError("vtb must be specified when nmu0 > 0")
-        if self.ang0 is None and self.nmu0 > 0:
-            raise ValueError("ang0 must be specified when nmu0 > 0")
-
-    def write(self, path: Path) -> None:
+    def write(self, directory: Path) -> None:
         """Write configuration to fort.55 file.
 
         Args:
-            path: Path where fort.55 should be written
+            directory: Directory where to write the fort.55 file
+
+        Raises:
+            ValueError: If wavelength range is invalid
+            OSError: If file cannot be written
         """
-        self.validate_parameters()
+        path = directory / FILENAME
         with open(path, "w") as f:
             # Basic operation parameters
-            f.write(f"{self.imode.value} {self.idstd} {self.iprin}\n")
+            f.write(f"{int(self.imode)}\n")
+            f.write(f"{self.idstd}\n")
+            f.write(f"{self.iprin}\n")
 
             # Model parameters
-            f.write(f"{self.inmod.value} {self.intrpl} {self.ichang} {self.ichemc}\n")
+            f.write(f"{int(self.inmod)}\n")
+            f.write(f"{self.intrpl}\n")
+            f.write(f"{self.ichang}\n")
+            f.write(f"{self.ichemc}\n")
 
             # Line physics parameters
-            f.write(
-                f"{self.iophli} {self.nunalp} {self.nunbet} {self.nungam} "
-                f"{self.nunbal}\n"
-            )
-            f.write(
-                f"{self.ifreq.value} {self.inlte} {self.icontl} {self.inlist} "
-                f"{self.ifhe2}\n"
-            )
-            f.write(f"{self.ihydpr} {self.ihe1pr} {self.ihe2pr}\n")
+            f.write(f"{self.iophli}\n")
+            f.write(f"{self.nunalp}\n")
+            f.write(f"{self.nunbet}\n")
+            f.write(f"{self.nungam}\n")
+            f.write(f"{self.nunbal}\n")
 
-            # Wavelength parameters
+            # More line physics parameters
+            f.write(f"{int(self.ifreq)}\n")
+            f.write(f"{self.inlte}\n")
+            f.write(f"{self.icontl}\n")
+            f.write(f"{self.inlist}\n")
+            f.write(f"{self.ifhe2}\n")
+
+            # Line profile parameters
+            f.write(f"{self.ihydpr}\n")
+            f.write(f"{self.ihe1pr}\n")
+            f.write(f"{self.ihe2pr}\n")
+
+            # Wavelength parameters - check validity first
             if self.alam0 > abs(self.alast):
                 raise ValueError(
                     f"alam0({self.alam0}) must be less than or equal to "
@@ -172,18 +173,20 @@ class Fort55:
                 f.write(f"{self.nmu0} {self.ang0} {self.iflux}\n")
 
     @classmethod
-    def read(cls, path: Path) -> Self:  # noqa: C901 (We are imitating complex parsing)
+    def read(cls, directory: Path) -> Self:  # noqa: C901
         """Read configuration from fort.55 file.
 
         Args:
-            path: Path to fort.55 file
+            directory: Directory containing the fort.55 file
 
         Returns:
             Fort55Config object initialized from file
 
         Raises:
+            FileNotFoundError: If file does not exist
             ValueError: If file format is invalid
         """
+        path = directory / FILENAME
         with open(path) as f:
             reader = FortranReader(f.read())
 

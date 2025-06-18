@@ -4,12 +4,11 @@ This test suite verifies the functionality of the fort56 module, which handles
 SYNSPEC's fort.56 input file for atomic abundance changes.
 """
 
-import tempfile
 from pathlib import Path
 
 import pytest
 
-from isynspec.io.fort56 import AtomicAbundance, Fort56
+from isynspec.io.fort56 import FILENAME, AtomicAbundance, Fort56
 
 
 def test_atomic_abundance_basic():
@@ -34,8 +33,8 @@ def test_fort56_basic():
     assert fort56.changes[1].abundance == 8.2
 
 
-def test_fort56_read_write():
-    """Test reading and writing Fort56 data to a file."""
+def test_fort56_read_write(tmp_path: Path):
+    """Test reading and writing Fort56 data to a directory."""
     # Create test data
     original_changes = [
         AtomicAbundance(atomic_number=26, abundance=7.5),
@@ -44,53 +43,42 @@ def test_fort56_read_write():
     ]
     fort56 = Fort56(changes=original_changes)
 
-    # Write to temporary file
-    with tempfile.NamedTemporaryFile(mode="w", delete=False) as tmp:
-        fort56.write(tmp.name)
-        tmp_path = Path(tmp.name)
+    # Write to temporary directory
+    fort56.write(tmp_path)
+    assert (tmp_path / FILENAME).exists()
 
-    try:
-        # Read back and verify
-        read_fort56 = Fort56.read(tmp_path)
+    # Read back and verify
+    read_fort56 = Fort56.read(tmp_path)
 
-        assert len(read_fort56.changes) == len(original_changes)
-        for orig, read in zip(original_changes, read_fort56.changes):
-            assert orig.atomic_number == read.atomic_number
-            assert orig.abundance == pytest.approx(read.abundance)
-
-    finally:
-        # Cleanup
-        tmp_path.unlink()
+    assert len(read_fort56.changes) == len(original_changes)
+    for orig, read in zip(original_changes, read_fort56.changes):
+        assert orig.atomic_number == read.atomic_number
+        assert orig.abundance == pytest.approx(read.abundance)
 
 
-def test_fort56_invalid_format():
+def test_fort56_invalid_format(tmp_path: Path):
     """Test error handling for invalid fort.56 file format."""
-    with tempfile.NamedTemporaryFile(mode="w", delete=False) as tmp:
-        tmp.write("invalid content")
-        tmp_path = Path(tmp.name)
+    # Create invalid fort.56 file
+    (tmp_path / FILENAME).write_text("invalid content")
 
-    try:
-        with pytest.raises(ValueError, match="Invalid fort.56 file format"):
-            Fort56.read(tmp_path)
-
-    finally:
-        # Cleanup
-        tmp_path.unlink()
+    with pytest.raises(ValueError, match="Invalid fort.56 file format"):
+        Fort56.read(tmp_path)
 
 
-def test_fort56_empty_changes():
+def test_fort56_empty_changes(tmp_path: Path):
     """Test Fort56 with empty changes list."""
     fort56 = Fort56(changes=[])
 
-    with tempfile.NamedTemporaryFile(mode="w", delete=False) as tmp:
-        fort56.write(tmp.name)
-        tmp_path = Path(tmp.name)
+    # Write to temporary directory
+    fort56.write(tmp_path)
+    assert (tmp_path / FILENAME).exists()
 
-    try:
-        # Read back and verify
-        read_fort56 = Fort56.read(tmp_path)
-        assert len(read_fort56.changes) == 0
+    # Read back and verify
+    read_fort56 = Fort56.read(tmp_path)
+    assert len(read_fort56.changes) == 0
 
-    finally:
-        # Cleanup
-        tmp_path.unlink()
+
+def test_fort56_file_not_found(tmp_path: Path):
+    """Test error handling when fort.56 file does not exist."""
+    with pytest.raises(FileNotFoundError):
+        Fort56.read(tmp_path)

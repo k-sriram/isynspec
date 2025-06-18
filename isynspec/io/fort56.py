@@ -14,6 +14,8 @@ from typing import Self
 
 from isynspec.utils.fortio import FortFloat
 
+FILENAME = "fort.56"
+
 
 @dataclass
 class AtomicAbundance:
@@ -33,16 +35,20 @@ class Fort56:
     changes: list[AtomicAbundance]  # List of abundance changes
 
     @classmethod
-    def read(cls, path: str | Path) -> Self:
+    def read(cls, directory: Path) -> Self:
         """Read fort.56 file and create Fort56 instance.
 
         Args:
-            path: Path to fort.56 file
+            directory: Directory containing fort.56 file
 
         Returns:
             New Fort56 instance with parsed data
+
+        Raises:
+            ValueError: If the file format is invalid
+            FileNotFoundError: If the file does not exist
         """
-        path = Path(path)
+        path = directory / FILENAME
         text = path.read_text()
         fields = text.split()
 
@@ -65,13 +71,16 @@ class Fort56:
         except (ValueError, IndexError, StopIteration) as e:
             raise ValueError(f"Invalid fort.56 file format: {e}")
 
-    def write(self, path: str | Path) -> None:
+    def write(self, directory: Path) -> None:
         """Write Fort56 data to file.
 
         Args:
-            path: Path where to write the fort.56 file
+            directory: Directory where to write the fort.56 file
+
+        Raises:
+            OSError: If the file cannot be written
         """
-        path = Path(path)
+        path = directory / FILENAME
 
         with path.open("w") as f:
             # Write number of changes
