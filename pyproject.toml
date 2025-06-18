@@ -10,6 +10,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = { file = "LICENSE" }
 authors = [{ name = "Sriram Krishna", email = "sriram.k@iiap.res.in" }]
+dependencies = ["numpy>=1.24.0"]
 
 [project.optional-dependencies]
 dev = [
