@@ -88,13 +88,6 @@ def test_manual_session_lifecycle():
         _ = session.working_dir
 
 
-def test_missing_synspec_executable():
-    """Test error when SYNSPEC executable is not found."""
-    config = ISynspecConfig(synspec_path=Path("nonexistent"))
-    with pytest.raises(FileNotFoundError):
-        ISynspecSession(config)
-
-
 def test_config_mutable_defaults():
     """Test that mutable defaults in config are handled correctly."""
     config1 = ISynspecConfig()

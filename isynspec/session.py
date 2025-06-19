@@ -3,8 +3,9 @@
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import TracebackType
-from typing import Self, Type
+from typing import Type
 
+from .io.execution import ExecutionConfig
 from .io.workdir import WorkingDirConfig, WorkingDirectory, WorkingDirStrategy
 
 
@@ -15,12 +16,14 @@ class ISynspecConfig:
     Attributes:
         synspec_path: Path to the SYNSPEC executable
         working_dir_config: Configuration for working directory management
+        execution_config: Configuration for execution strategy and file management
     """
 
     synspec_path: Path | None = None
     working_dir_config: WorkingDirConfig = field(
         default_factory=lambda: WorkingDirConfig(strategy=WorkingDirStrategy.CURRENT)
     )
+    execution_config: ExecutionConfig = field(default_factory=ExecutionConfig)
 
 
 class ISynspecSession:
@@ -45,44 +48,43 @@ class ISynspecSession:
         self.config = config if config is not None else ISynspecConfig()
         self._working_dir: WorkingDirectory | None = None
 
-        # Validate and locate SYNSPEC executable
-        self._executable = self._find_synspec_executable()
+    def _prepare_working_directory(self) -> None:
+        """Prepare the working directory with input files if needed."""
+        if not self.config.execution_config.file_management.copy_input_files:
+            return
 
-    def _find_synspec_executable(self) -> Path:
-        """Locate the SYNSPEC executable.
+        input_files = self.config.execution_config.file_management.input_files
+        # TODO: If input_files is None, copy all required files
+        # For now, copy specified files
+        if input_files:
+            for file_path in input_files:
+                if file_path.exists():
+                    import shutil
 
-        Returns:
-            Path to the SYNSPEC executable.
+                    dst = self.working_dir / file_path.name
+                    shutil.copy2(file_path, dst)
 
-        Raises:
-            FileNotFoundError: If SYNSPEC executable cannot be found.
-        """
-        # First check config
-        if self.config.synspec_path:
-            if self.config.synspec_path.is_file():
-                return self.config.synspec_path
-            raise FileNotFoundError(
-                f"SYNSPEC executable not found at {self.config.synspec_path}"
-            )
+    def _collect_output_files(self) -> None:
+        """Copy output files to output directory if configured."""
+        if not self.config.execution_config.file_management.copy_output_files:
+            return
 
-        # Look in current directory
-        local_synspec = Path.cwd() / "synspec"
-        if local_synspec.is_file():
-            return local_synspec
+        output_dir = self.config.execution_config.file_management.output_directory
+        if not output_dir:
+            return
 
-        # For testing purposes - create a mock executable
-        import sys
+        output_files = self.config.execution_config.file_management.output_files
+        # TODO: If output_files is None, copy all output files
+        # For now, copy specified files
+        if output_files:
+            output_dir.mkdir(parents=True, exist_ok=True)
+            import shutil
 
-        if "pytest" in sys.modules:
-            mock_dir = Path.home() / ".isynspec" / "test"
-            mock_dir.mkdir(parents=True, exist_ok=True)
-            mock_exe = mock_dir / "synspec"
-            if not mock_exe.exists():
-                mock_exe.touch(mode=0o755)
-            return mock_exe
-
-        raise FileNotFoundError("SYNSPEC executable not found")
-        # TODO: Implement search in system PATH
+            for file_path in output_files:
+                src = self.working_dir / file_path.name
+                if src.exists():
+                    dst = output_dir / file_path.name
+                    shutil.copy2(src, dst)
 
     @property
     def working_dir(self) -> Path:
@@ -109,14 +111,16 @@ class ISynspecSession:
         if not self._working_dir:
             self._working_dir = WorkingDirectory(self.config.working_dir_config)
             self._working_dir.path  # Initialize the directory
+            self._prepare_working_directory()
 
     def cleanup(self) -> None:
         """Clean up the session resources."""
         if self._working_dir:
+            self._collect_output_files()
             self._working_dir.cleanup()
             self._working_dir = None
 
-    def __enter__(self) -> Self:
+    def __enter__(self) -> "ISynspecSession":
         """Initialize the session when entering context."""
         self.init()
         return self
