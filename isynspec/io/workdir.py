@@ -2,7 +2,7 @@
 
 import tempfile
 from dataclasses import dataclass
-from enum import Enum, auto
+from enum import StrEnum
 from pathlib import Path
 from types import TracebackType
 from typing import Self, Type
@@ -10,7 +10,7 @@ from typing import Self, Type
 import platformdirs
 
 
-class WorkingDirStrategy(Enum):
+class WorkingDirStrategy(StrEnum):
     """Strategy for determining the SYNSPEC working directory.
 
     Attributes:
@@ -20,10 +20,10 @@ class WorkingDirStrategy(Enum):
         USER_DATA: Use the user's data directory (platform-specific)
     """
 
-    CURRENT = auto()
-    SPECIFIED = auto()
-    TEMPORARY = auto()
-    USER_DATA = auto()
+    CURRENT = "CURRENT"
+    SPECIFIED = "SPECIFIED"
+    TEMPORARY = "TEMPORARY"
+    USER_DATA = "USER_DATA"
 
 
 @dataclass

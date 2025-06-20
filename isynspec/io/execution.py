@@ -5,7 +5,7 @@ import platform
 import subprocess
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from enum import Enum, auto
+from enum import StrEnum
 from pathlib import Path
 from typing import Final, Self, TypeAlias
 
@@ -13,7 +13,7 @@ FileList: TypeAlias = Sequence[Path]
 EXPECTED_OUTPUT_FILES: Final[list[str]] = ["fort.7", "fort.17", "fort.16", "fort.12"]
 
 
-class Shell(Enum):
+class Shell(StrEnum):
     """Shell to use for execution.
 
     Attributes:
@@ -25,12 +25,12 @@ class Shell(Enum):
         SH: POSIX shell
     """
 
-    AUTO = auto()
-    CMD = auto()
-    POWERSHELL = auto()
-    PWSH = auto()
-    BASH = auto()
-    SH = auto()
+    AUTO = "AUTO"
+    CMD = "CMD"
+    POWERSHELL = "POWERSHELL"
+    PWSH = "PWSH"
+    BASH = "BASH"
+    SH = "SH"
 
     @classmethod
     def detect_default(cls) -> Self:
@@ -69,7 +69,7 @@ class Shell(Enum):
             return cls(cls.SH)
 
 
-class ExecutionStrategy(Enum):
+class ExecutionStrategy(StrEnum):
     """Strategy for executing SYNSPEC calculations.
 
     Attributes:
@@ -78,9 +78,9 @@ class ExecutionStrategy(Enum):
         SCRIPT: Run a Python script
     """
 
-    SYNSPEC = auto()
-    CUSTOM = auto()
-    SCRIPT = auto()
+    SYNSPEC = "SYNSPEC"
+    CUSTOM = "CUSTOM"
+    SCRIPT = "SCRIPT"
 
 
 @dataclass
