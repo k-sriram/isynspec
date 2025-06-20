@@ -9,8 +9,6 @@ from enum import Enum, auto
 from pathlib import Path
 from typing import Final, Self, TypeAlias
 
-from isynspec.io.workdir import WorkingDirectory
-
 FileList: TypeAlias = Sequence[Path]
 EXPECTED_OUTPUT_FILES: Final[list[str]] = ["fort.7", "fort.17", "fort.16", "fort.12"]
 
@@ -117,7 +115,6 @@ class ExecutionConfig:
         shell: Shell to use for execution
     """
 
-    working_dir: WorkingDirectory = field(default_factory=WorkingDirectory)
     strategy: ExecutionStrategy = ExecutionStrategy.SYNSPEC
     custom_executable: Path | None = None
     script_path: Path | None = None
@@ -153,18 +150,24 @@ class SynspecExecutor:
     This class runs the configured executable and validates the output.
     """
 
-    def __init__(self, config: ExecutionConfig) -> None:
+    def __init__(
+        self,
+        config: ExecutionConfig,
+        working_dir: Path,
+    ) -> None:
         """Initialize executor with configuration.
 
         Args:
             config: Execution configuration
+            working_dir: Path to the working directory where execution will occur
         """
         self.config = config
+        self.working_dir = working_dir
 
     def _clean_output_files(self) -> None:
         """Remove any existing output files from working directory."""
         for filename in EXPECTED_OUTPUT_FILES:
-            file_path = self.config.working_dir.path / filename
+            file_path = self.working_dir / filename
             try:
                 file_path.unlink(missing_ok=True)
             except OSError:
@@ -180,7 +183,7 @@ class SynspecExecutor:
         """
         missing_files = []
         for filename in EXPECTED_OUTPUT_FILES:
-            if not (self.config.working_dir.path / filename).exists():
+            if not (self.working_dir / filename).exists():
                 missing_files.append(filename)
 
         if missing_files:
@@ -275,7 +278,7 @@ class SynspecExecutor:
 
         _run_command(
             cmd=cmd,
-            working_dir=self.config.working_dir.path,
+            working_dir=self.working_dir,
             use_shell=use_shell,
             stdin_file=stdin_file,
             stdout_file=stdout_file,

@@ -1,7 +1,6 @@
 """Tests for SYNSPEC execution strategy."""
 
 import sys
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -14,7 +13,6 @@ from isynspec.io.execution import (
     Shell,
     SynspecExecutor,
 )
-from isynspec.io.workdir import WorkingDirectory, WorkingDirStrategy
 
 
 def test_default_execution_config():
@@ -29,47 +27,42 @@ def test_default_execution_config():
     assert config.file_management.output_directory is None
 
 
-def test_file_management_config():
+def test_file_management_config(tmp_path: Path):
     """Test file management configuration."""
-    with WorkingDirectory(strategy=WorkingDirStrategy.TEMPORARY) as wd:
-        output_dir = wd.path / "output"
-        config = ExecutionConfig(
-            working_dir=wd,
-            file_management=FileManagementConfig(
-                copy_input_files=True,
-                copy_output_files=True,
-                output_directory=output_dir,
-                input_files=[Path("input.dat")],
-                output_files=[Path("output.dat")],
-            ),
-        )
-        assert config.file_management.copy_input_files is True
-        assert config.file_management.copy_output_files is True
-        assert config.file_management.output_directory == output_dir
-        assert config.file_management.input_files is not None
-        assert config.file_management.output_files is not None
-        assert config.file_management.input_files[0] == Path("input.dat")
-        assert config.file_management.output_files[0] == Path("output.dat")
+    output_dir = tmp_path / "output"
+    config = ExecutionConfig(
+        file_management=FileManagementConfig(
+            copy_input_files=True,
+            copy_output_files=True,
+            output_directory=output_dir,
+            input_files=[Path("input.dat")],
+            output_files=[Path("output.dat")],
+        ),
+    )
+    assert config.file_management.copy_input_files is True
+    assert config.file_management.copy_output_files is True
+    assert config.file_management.output_directory == output_dir
+    assert config.file_management.input_files is not None
+    assert config.file_management.output_files is not None
+    assert config.file_management.input_files[0] == Path("input.dat")
+    assert config.file_management.output_files[0] == Path("output.dat")
 
 
 def test_invalid_execution_config():
     """Test validation of execution configuration."""
     # Test missing custom executable
-    with WorkingDirectory(strategy=WorkingDirStrategy.TEMPORARY) as wd:
+    with pytest.raises(ValueError, match="must provide custom_executable"):
+        ExecutionConfig(strategy=ExecutionStrategy.CUSTOM)
 
-        with pytest.raises(ValueError, match="must provide custom_executable"):
-            ExecutionConfig(working_dir=wd, strategy=ExecutionStrategy.CUSTOM)
+    # Test missing script path
+    with pytest.raises(ValueError, match="must provide script_path"):
+        ExecutionConfig(strategy=ExecutionStrategy.SCRIPT)
 
-        # Test missing script path
-        with pytest.raises(ValueError, match="must provide script_path"):
-            ExecutionConfig(working_dir=wd, strategy=ExecutionStrategy.SCRIPT)
-
-        # Test missing output directory
-        with pytest.raises(ValueError, match="must provide output_directory"):
-            ExecutionConfig(
-                working_dir=wd,
-                file_management=FileManagementConfig(copy_output_files=True),
-            )
+    # Test missing output directory
+    with pytest.raises(ValueError, match="must provide output_directory"):
+        ExecutionConfig(
+            file_management=FileManagementConfig(copy_output_files=True),
+        )
 
 
 @pytest.mark.parametrize(
@@ -84,10 +77,9 @@ def test_invalid_execution_config():
 )
 def test_shell_info(shell, expected):
     """Test shell info for CMD shell."""
-    with WorkingDirectory(strategy=WorkingDirStrategy.CURRENT) as wd:
-        config = ExecutionConfig(working_dir=wd, shell=shell)
-        executor = SynspecExecutor(config)
-        cmd_prefix, use_shell = executor._get_shell_info()
+    config = ExecutionConfig(shell=shell)
+    executor = SynspecExecutor(config, Path.cwd())
+    cmd_prefix, use_shell = executor._get_shell_info()
 
     assert cmd_prefix == expected[0]
     assert use_shell is expected[1]
@@ -96,9 +88,8 @@ def test_shell_info(shell, expected):
 def test_invalid_shell():
     """Test error on invalid shell type."""
     # Create an invalid shell value
-    with WorkingDirectory(strategy=WorkingDirStrategy.CURRENT) as wd:
-        config = ExecutionConfig(working_dir=wd, shell=999)  # type: ignore
-        executor = SynspecExecutor(config)
+    config = ExecutionConfig(shell=999)  # type: ignore
+    executor = SynspecExecutor(config, Path.cwd())
 
     with pytest.raises(ValueError, match="Unknown shell type"):
         executor._get_shell_info()
@@ -116,14 +107,12 @@ def test_invalid_shell():
 )
 def test_get_command_synspec(shell):
     """Test command generation for SYNSPEC strategy with different shells."""
-    with WorkingDirectory(strategy=WorkingDirStrategy.CURRENT) as wd:
-        config = ExecutionConfig(
-            working_dir=wd,
-            strategy=ExecutionStrategy.SYNSPEC,
-            shell=shell,
-        )
-        executor = SynspecExecutor(config)
-        cmd = executor._get_command()
+    config = ExecutionConfig(
+        strategy=ExecutionStrategy.SYNSPEC,
+        shell=shell,
+    )
+    executor = SynspecExecutor(config, Path.cwd())
+    cmd = executor._get_command()
 
     shell_prefix, _ = executor._get_shell_info()
     if len(shell_prefix) > 1:
@@ -132,60 +121,53 @@ def test_get_command_synspec(shell):
         assert cmd == ["synspec"]
 
 
-def test_get_command_custom():
+def test_get_command_custom(tmp_path: Path):
     """Test command generation for CUSTOM strategy."""
-    with WorkingDirectory(strategy=WorkingDirStrategy.TEMPORARY) as wd:
-        exe_path = wd.path / "custom_synspec"
-        exe_path.touch(mode=0o755)
+    exe_path = tmp_path / "custom_synspec"
+    exe_path.touch(mode=0o755)
 
-        config = ExecutionConfig(
-            working_dir=wd,
-            strategy=ExecutionStrategy.CUSTOM,
-            custom_executable=exe_path,
-            shell=Shell.BASH,
-        )
-        executor = SynspecExecutor(config)
-        cmd = executor._get_command()
+    config = ExecutionConfig(
+        strategy=ExecutionStrategy.CUSTOM,
+        custom_executable=exe_path,
+        shell=Shell.BASH,
+    )
+    executor = SynspecExecutor(config, tmp_path)
+    cmd = executor._get_command()
 
-        assert cmd == ["bash", "-c", str(exe_path)]
+    assert cmd == ["bash", "-c", str(exe_path)]
 
 
-def test_get_command_script():
+def test_get_command_script(tmp_path: Path):
     """Test command generation for SCRIPT strategy."""
-    with WorkingDirectory(strategy=WorkingDirStrategy.TEMPORARY) as wd:
-        script_path = wd.path / "synspec.py"
-        script_path.touch()
+    script_path = tmp_path / "synspec.py"
+    script_path.touch()
 
-        config = ExecutionConfig(
-            working_dir=wd,
-            strategy=ExecutionStrategy.SCRIPT,
-            script_path=script_path,
-            shell=Shell.PWSH,
-        )
-        executor = SynspecExecutor(config)
-        cmd = executor._get_command()
+    config = ExecutionConfig(
+        strategy=ExecutionStrategy.SCRIPT,
+        script_path=script_path,
+        shell=Shell.PWSH,
+    )
+    executor = SynspecExecutor(config, tmp_path)
+    cmd = executor._get_command()
 
-        assert cmd == ["pwsh", "-Command", f"python {script_path}"]
+    assert cmd == ["pwsh", "-Command", f"python {script_path}"]
+    assert cmd == ["pwsh", "-Command", f"python {script_path}"]
 
 
 def test_get_command_missing_custom():
     """Test error when custom executable is not specified."""
-    with WorkingDirectory(strategy=WorkingDirStrategy.CURRENT) as wd:
-        config = ExecutionConfig(working_dir=wd, strategy=ExecutionStrategy.CUSTOM)
-        executor = SynspecExecutor(config)
-
-        with pytest.raises(ValueError, match="Custom executable not specified"):
-            executor._get_command()
+    with pytest.raises(
+        ValueError, match="must provide custom_executable with CUSTOM strategy"
+    ):
+        ExecutionConfig(strategy=ExecutionStrategy.CUSTOM)
 
 
 def test_get_command_missing_script():
     """Test error when script path is not specified."""
-    with WorkingDirectory(strategy=WorkingDirStrategy.CURRENT) as wd:
-        config = ExecutionConfig(working_dir=wd, strategy=ExecutionStrategy.SCRIPT)
-        executor = SynspecExecutor(config)
-
-        with pytest.raises(ValueError, match="Script path not specified"):
-            executor._get_command()
+    with pytest.raises(
+        ValueError, match="must provide script_path with SCRIPT strategy"
+    ):
+        ExecutionConfig(strategy=ExecutionStrategy.SCRIPT)
 
 
 # Start: New test functions for shell detection and command handling
@@ -204,30 +186,23 @@ def test_shell_auto_detection(shell, expected, monkeypatch):
     assert Shell.detect_default() == expected
 
 
-def test_path_normalization():
+def test_path_normalization(tmp_path: Path):
     """Test that paths are properly normalized in commands."""
-    with tempfile.TemporaryDirectory() as temp_dir:
-        temp_path = Path(temp_dir)
-        script_path = (temp_path / ".." / temp_path.name / "script.py").resolve()
-        script_path.parent.mkdir(parents=True, exist_ok=True)
-        script_path.touch()
+    script_path = (tmp_path / ".." / tmp_path.name / "script.py").resolve()
+    script_path.parent.mkdir(parents=True, exist_ok=True)
+    script_path.touch()
 
-        with WorkingDirectory(strategy=WorkingDirStrategy.CURRENT) as wd:
-            # Create a configuration with the script path
-            config = ExecutionConfig(
-                working_dir=wd,
-                strategy=ExecutionStrategy.SCRIPT,
-                script_path=script_path,
-                shell=Shell.BASH,
-            )
-        executor = SynspecExecutor(config)
-        cmd = executor._get_command()
+    # Create a configuration with the script path
+    config = ExecutionConfig(
+        strategy=ExecutionStrategy.SCRIPT,
+        script_path=script_path,
+        shell=Shell.BASH,
+    )
+    executor = SynspecExecutor(config, Path.cwd())
+    cmd = executor._get_command()
 
-        # Check that the path in the command is normalized
-        assert str(script_path.resolve()) in cmd[-1]
-
-
-# End: New test functions
+    # Check that the path in the command is normalized
+    assert str(script_path.resolve()) in cmd[-1]
 
 
 def test_execution_with_io_redirection(tmp_path, monkeypatch):
@@ -280,25 +255,22 @@ def test_execution_with_io_redirection(tmp_path, monkeypatch):
     monkeypatch.setattr("isynspec.io.execution._run_command", mock_run_command)
 
     # Create configuration for a SYNSPEC execution
-    with WorkingDirectory(strategy=WorkingDirStrategy.SPECIFIED, path=tmp_path) as wd:
-        input_file.write_text("Test input data")
-        wd.path.mkdir(parents=True, exist_ok=True)
-        script_path = wd.path / "synspec"
-        script_path.touch()
-        config = ExecutionConfig(
-            strategy=ExecutionStrategy.SYNSPEC,
-            shell=Shell.BASH,  # Use specific shell to make command predictable
-            working_dir=wd,
-            file_management=FileManagementConfig(
-                copy_input_files=False, copy_output_files=False
-            ),
-        )
+    input_file.write_text("Test input data")
+    script_path = tmp_path / "synspec"
+    script_path.touch()
+    config = ExecutionConfig(
+        strategy=ExecutionStrategy.SYNSPEC,
+        shell=Shell.BASH,  # Use specific shell to make command predictable
+        file_management=FileManagementConfig(
+            copy_input_files=False, copy_output_files=False
+        ),
+    )
 
-        # Create and run executor
-        executor = SynspecExecutor(config)
-        executor.execute(
-            stdin_file=input_file, stdout_file=stdout_file, stderr_file=stderr_file
-        )
+    # Create and run executor
+    executor = SynspecExecutor(config, tmp_path)
+    executor.execute(
+        stdin_file=input_file, stdout_file=stdout_file, stderr_file=stderr_file
+    )
 
     # Verify _run_command was called with correct arguments
     assert run_command_args is not None
