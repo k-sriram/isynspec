@@ -25,6 +25,15 @@ class ISynspecConfig:
     )
     execution_config: ExecutionConfig = field(default_factory=ExecutionConfig)
 
+    # def asdict(self) -> dict[str, Any]:
+    #     """Convert configuration to a dictionary."""
+    #     config_dict = {
+    #         "synspec_path": self.synspec_path,
+    #         "working_dir": asdict(self.working_dir_config),
+    #         "execution": asdict(self.execution_config),
+    #     }
+    #     return config_dict
+
 
 class ISynspecSession:
     """Main interface for running SYNSPEC calculations.
