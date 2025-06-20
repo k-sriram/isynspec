@@ -1,7 +1,6 @@
 """Configuration management for SYNSPEC working directories."""
 
 import tempfile
-from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
 from types import TracebackType
@@ -26,29 +25,6 @@ class WorkingDirStrategy(Enum):
     USER_DATA = auto()
 
 
-@dataclass
-class WorkingDirConfig:
-    """Configuration for SYNSPEC working directory.
-
-    Attributes:
-        strategy: The strategy to use for determining the working directory
-        specified_path: Path to use when strategy is SPECIFIED
-        preserve_temp: Whether to preserve temporary directories
-    """
-
-    strategy: WorkingDirStrategy
-    specified_path: str | Path | None = None
-    preserve_temp: bool = False
-
-    def __post_init__(self) -> None:
-        """Validate configuration after initialization."""
-        if self.strategy == WorkingDirStrategy.SPECIFIED and not self.specified_path:
-            raise ValueError("must provide specified_path with SPECIFIED strategy")
-
-        if self.specified_path and isinstance(self.specified_path, str):
-            self.specified_path = Path(self.specified_path)
-
-
 class WorkingDirectory:
     """Manages the working directory for SYNSPEC operations.
 
@@ -56,13 +32,24 @@ class WorkingDirectory:
     based on the configured strategy.
     """
 
-    def __init__(self, config: WorkingDirConfig | None = None) -> None:
+    def __init__(
+        self,
+        strategy: WorkingDirStrategy = WorkingDirStrategy.CURRENT,
+        path: Path | None = None,
+        preserve_temp: bool = False,
+    ) -> None:
         """Initialize working directory manager.
 
         Args:
-            config: Working directory configuration. If None, uses CURRENT strategy.
+            strategy: Working directory strategy to use.
+            path: Path to use when strategy is SPECIFIED.
+            preserve_temp: Whether to preserve temporary directories.
         """
-        self.config = config or WorkingDirConfig(strategy=WorkingDirStrategy.CURRENT)
+        if strategy == WorkingDirStrategy.SPECIFIED and path is None:
+            raise ValueError("must provide path when strategy is SPECIFIED")
+        self.strategy = strategy
+        self.specified_path = path
+        self.preserve_temp = preserve_temp
         self._temp_dir: Path | None = None
         self._working_dir: Path | None = None
 
@@ -83,20 +70,20 @@ class WorkingDirectory:
 
     def _initialize_working_dir(self) -> None:
         """Initialize the working directory based on the configured strategy."""
-        if self.config.strategy == WorkingDirStrategy.CURRENT:
+        if self.strategy == WorkingDirStrategy.CURRENT:
             self._working_dir = Path.cwd()
 
-        elif self.config.strategy == WorkingDirStrategy.SPECIFIED:
-            assert self.config.specified_path  # checked in post_init
-            path = Path(self.config.specified_path)
+        elif self.strategy == WorkingDirStrategy.SPECIFIED:
+            assert self.specified_path  # checked in post_init
+            path = self.specified_path
             path.mkdir(parents=True, exist_ok=True)
             self._working_dir = path
 
-        elif self.config.strategy == WorkingDirStrategy.TEMPORARY:
+        elif self.strategy == WorkingDirStrategy.TEMPORARY:
             self._temp_dir = Path(tempfile.mkdtemp(prefix="isynspec_"))
             self._working_dir = self._temp_dir
 
-        elif self.config.strategy == WorkingDirStrategy.USER_DATA:
+        elif self.strategy == WorkingDirStrategy.USER_DATA:
             data_dir = Path(platformdirs.user_data_dir("isynspec"))
             data_dir.mkdir(parents=True, exist_ok=True)
             self._working_dir = data_dir
@@ -107,8 +94,8 @@ class WorkingDirectory:
 
         if (
             self._temp_dir is not None
-            and self.config.strategy == WorkingDirStrategy.TEMPORARY
-            and not self.config.preserve_temp
+            and self.strategy == WorkingDirStrategy.TEMPORARY
+            and not self.preserve_temp
         ):
             shutil.rmtree(self._temp_dir)
             self._temp_dir = None
