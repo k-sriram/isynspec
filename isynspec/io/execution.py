@@ -9,6 +9,8 @@ from enum import Enum, auto
 from pathlib import Path
 from typing import Final, Self, TypeAlias
 
+from isynspec.io.workdir import WorkingDirectory
+
 FileList: TypeAlias = Sequence[Path]
 EXPECTED_OUTPUT_FILES: Final[list[str]] = ["fort.7", "fort.17", "fort.16", "fort.12"]
 
@@ -110,15 +112,21 @@ class ExecutionConfig:
         strategy: The execution strategy to use
         custom_executable: Path to custom executable (when strategy is CUSTOM)
         script_path: Path to Python script (when strategy is SCRIPT)
+        working_dir: Working directory configuration
         file_management: Configuration for file management
         shell: Shell to use for execution
     """
 
+    working_dir: WorkingDirectory = field(default_factory=WorkingDirectory)
     strategy: ExecutionStrategy = ExecutionStrategy.SYNSPEC
     custom_executable: Path | None = None
     script_path: Path | None = None
     file_management: FileManagementConfig = field(default_factory=FileManagementConfig)
     shell: Shell = Shell.AUTO
+
+    def __post_init__(self) -> None:
+        """Post-initialization to validate configuration."""
+        self.validate_configuration()
 
     def validate_configuration(self) -> None:
         """Validate configuration."""
@@ -145,20 +153,18 @@ class SynspecExecutor:
     This class runs the configured executable and validates the output.
     """
 
-    def __init__(self, config: ExecutionConfig, working_dir: Path) -> None:
+    def __init__(self, config: ExecutionConfig) -> None:
         """Initialize executor with configuration.
 
         Args:
             config: Execution configuration
-            working_dir: Directory where SYNSPEC will run
         """
         self.config = config
-        self.working_dir = working_dir
 
     def _clean_output_files(self) -> None:
         """Remove any existing output files from working directory."""
         for filename in EXPECTED_OUTPUT_FILES:
-            file_path = self.working_dir / filename
+            file_path = self.config.working_dir.path / filename
             try:
                 file_path.unlink(missing_ok=True)
             except OSError:
@@ -174,7 +180,7 @@ class SynspecExecutor:
         """
         missing_files = []
         for filename in EXPECTED_OUTPUT_FILES:
-            if not (self.working_dir / filename).exists():
+            if not (self.config.working_dir.path / filename).exists():
                 missing_files.append(filename)
 
         if missing_files:
@@ -234,13 +240,23 @@ class SynspecExecutor:
             return shell_cmd + [" ".join(base_cmd)]
         return base_cmd
 
-    def execute(self) -> None:
+    def execute(
+        self,
+        stdin_file: Path | None = None,
+        stdout_file: Path | None = None,
+        stderr_file: Path | None = None,
+    ) -> None:
         """Execute SYNSPEC and validate output.
 
         This method:
         1. Cleans any existing output files
-        2. Runs the configured executable
+        2. Runs the configured executable with optional I/O redirection
         3. Validates that all expected output files were created
+
+        Args:
+            stdin_file: Optional path to a file to use as standard input
+            stdout_file: Optional path to a file to redirect standard output to
+            stderr_file: Optional path to a file to redirect standard error to
 
         Raises:
             ExecutionError: If execution fails or output files are missing
@@ -257,22 +273,85 @@ class SynspecExecutor:
         cmd = self._get_command()
         _, use_shell = self._get_shell_info()
 
-        try:
-            subprocess.run(
-                cmd,
-                cwd=self.working_dir,
-                shell=use_shell,
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-        except subprocess.CalledProcessError as e:
-            raise ExecutionError(
-                f"SYNSPEC execution failed with return code {e.returncode}.\n"
-                f"stdout: {e.stdout}\nstderr: {e.stderr}"
-            ) from e
-        except OSError as e:
-            raise ExecutionError(f"Failed to run SYNSPEC: {e}") from e
+        _run_command(
+            cmd=cmd,
+            working_dir=self.config.working_dir.path,
+            use_shell=use_shell,
+            stdin_file=stdin_file,
+            stdout_file=stdout_file,
+            stderr_file=stderr_file,
+        )
 
         # Validate output files
         self._validate_output_files()
+
+
+def _run_command(
+    cmd: list[str],
+    working_dir: Path,
+    use_shell: bool = False,
+    stdin_file: Path | None = None,
+    stdout_file: Path | None = None,
+    stderr_file: Path | None = None,
+) -> None:
+    """Run a command in the specified working directory.
+
+    Args:
+        cmd: Command to run as a list of arguments
+        working_dir: Directory to run the command in
+        use_shell: Whether to run the command in shell mode
+        stdin_file: Optional file for standard input
+        stdout_file: Optional file for standard output
+        stderr_file: Optional file for standard error
+    Raises:
+        subprocess.CalledProcessError: If the command returns a non-zero exit code
+        OSError: If the command cannot be executed
+    """
+    # Prepare file handles for redirection
+    stdin = open(stdin_file, "r") if stdin_file else None
+    stdout = open(stdout_file, "w") if stdout_file else subprocess.PIPE
+    stderr = open(stderr_file, "w") if stderr_file else subprocess.PIPE
+
+    try:
+        # Run the command with redirections
+        _ = subprocess.run(
+            cmd,
+            cwd=working_dir,
+            shell=use_shell,
+            check=True,
+            stdin=stdin,
+            stdout=stdout,
+            stderr=stderr,
+            text=True,
+        )
+
+    except subprocess.CalledProcessError as e:
+        # Include redirected output info in the error message
+        if stdout_file:
+            stdout_info = f"<redirected to {stdout_file}>"
+        else:
+            stdout_info = e.stdout or "<no output>"
+
+        if stderr_file:
+            stderr_info = f"<redirected to {stderr_file}>"
+        else:
+            stderr_info = e.stderr or "<no output>"
+
+        raise ExecutionError(
+            f"SYNSPEC execution failed with return code {e.returncode}.\n"
+            f"stdout: {stdout_info}\nstderr: {stderr_info}"
+        ) from e
+
+    except OSError as e:
+        raise ExecutionError(f"Failed to run SYNSPEC: {e}") from e
+
+    finally:
+        # Clean up file handles
+        if stdin is not None:
+            stdin.close()
+        if not isinstance(stdout, type(subprocess.PIPE)):
+            if hasattr(stdout, "close"):
+                stdout.close()
+        if not isinstance(stderr, type(subprocess.PIPE)):
+            if hasattr(stderr, "close"):
+                stderr.close()
