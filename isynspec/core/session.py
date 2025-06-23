@@ -166,3 +166,54 @@ class ISynspecSession:
     ) -> None:
         """Clean up when exiting context."""
         self.cleanup()
+
+    def run(self, model: str) -> None:
+        """Run SYNSPEC calculation for a given model.
+
+        This method:
+        1. Links/copies the model atmosphere file (*.7) as fort.8
+        2. Uses the model input file (*.5) as stdin
+        3. Redirects stdout to a log file (*.log)
+
+        Args:
+            model: Base name of the model files (without extension)
+
+        Raises:
+            RuntimeError: If session is not initialized
+            FileNotFoundError: If required model files are missing
+        """
+        if not self._working_dir:
+            raise RuntimeError(
+                "Session not initialized. Use with-statement or call init()"
+            )
+
+        # Check if model files exist
+        model_atm = Path(f"{model}.7")
+        model_input = Path(f"{model}.5")
+
+        if not model_atm.exists():
+            raise FileNotFoundError(f"Model atmosphere file not found: {model_atm}")
+        if not model_input.exists():
+            raise FileNotFoundError(f"Model input file not found: {model_input}")
+
+        # Set up model atmosphere as fort.8
+        dst = self.working_dir / "fort.8"
+        if dst.exists():
+            dst.unlink()
+
+        import shutil
+
+        shutil.copy2(model_atm, dst)
+
+        # Run SYNSPEC with stdin from model.5 and stdout to model.log
+        from isynspec.io.execution import SynspecExecutor
+
+        executor = SynspecExecutor(
+            config=self.config.execution_config,
+            working_dir=self.working_dir,
+        )
+
+        executor.execute(
+            stdin_file=model_input,
+            stdout_file=Path(f"{model}.log"),
+        )
