@@ -5,13 +5,14 @@ from pathlib import Path
 
 import pytest
 
-from isynspec.config import (
+from isynspec.core.config import (
     DEFAULT_CONFIG,
     _convert_config_paths_to_strings,
     _convert_paths,
     load_config,
     load_config_str,
 )
+from isynspec.core.session import ISynspecConfig, ISynspecSession
 from isynspec.io.execution import (
     ExecutionConfig,
     ExecutionStrategy,
@@ -19,7 +20,6 @@ from isynspec.io.execution import (
     Shell,
 )
 from isynspec.io.workdir import WorkingDirConfig, WorkingDirStrategy
-from isynspec.session import ISynspecConfig, ISynspecSession
 
 
 @pytest.fixture

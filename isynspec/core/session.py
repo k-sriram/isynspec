@@ -5,7 +5,7 @@ from pathlib import Path
 from types import TracebackType
 from typing import Any, Self, Type
 
-from isynspec.config import load_config
+from isynspec.core.config import load_config
 from isynspec.io.execution import ExecutionConfig
 from isynspec.io.workdir import WorkingDirConfig, WorkingDirectory, WorkingDirStrategy
 

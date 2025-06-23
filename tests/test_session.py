@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
+from isynspec.core.session import ISynspecConfig, ISynspecSession
 from isynspec.io.workdir import WorkingDirConfig, WorkingDirStrategy
-from isynspec.session import ISynspecConfig, ISynspecSession
 
 
 def test_session_initialization():
