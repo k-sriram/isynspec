@@ -7,17 +7,17 @@ This project aims to modernize the SYNSPEC spectral synthesis program by creatin
 
 ### Phase 1: Core Python Library (isynspec)
 1. Create a Python wrapper library that:
-   - Provides a clean, intuitive API for interacting with SYNSPEC
-   - Handles all fort.n file I/O operations transparently
-   - Manages SYNSPEC execution and configuration
-   - Processes and returns results in modern data formats (e.g., numpy arrays, pandas DataFrames)
+   - [✓] Handles all fort.n file I/O operations transparently
+   - [✓] Manages SYNSPEC execution and configuration
+   - [In Progress] Provides a clean, intuitive API for interacting with SYNSPEC
+   - [TODO] Processes and returns results in modern data formats (e.g., numpy arrays, pandas DataFrames)
 
 2. Implement core functionality:
-   - Input file generation and validation
-   - Configuration file management
-   - SYNSPEC execution control
-   - Output file parsing and data extraction
-   - Error handling and logging
+   - [✓] Input file generation and validation
+   - [✓] Configuration file management
+   - [✓] SYNSPEC execution control
+   - [✓] Output file parsing and data extraction
+   - [In Progress] Error handling and logging
 
 3. Create data structures for:
    - Model atmosphere parameters
@@ -83,11 +83,11 @@ isynspec/
 
 ### Test-Driven Development Approach
 1. Unit Testing
-   - Write tests before implementing features
-   - Test each component in isolation
-   - Use pytest for test framework
-   - Implement mock SYNSPEC responses for testing
-   - Maintain high test coverage (target: 90%+)
+   - [✓] Use pytest for test framework
+   - [✓] Test each component in isolation
+   - [In Progress] Write tests before implementing features
+   - [In Progress] Implement mock SYNSPEC responses for testing
+   - [TODO] Maintain high test coverage (target: 90%+)
 
 2. Integration Testing
    - Test interactions between components
@@ -130,10 +130,10 @@ isynspec/
 ## Development Roadmap
 
 1. Initial Setup (1-2 weeks)
-   - Project structure and build system
-   - Testing framework setup
-   - Initial test suite configuration
-   - Basic SYNSPEC integration with tests
+   - [✓] Project structure and build system
+   - [✓] Testing framework setup
+   - [✓] Initial test suite configuration
+   - [In Progress] Basic SYNSPEC integration with tests
 
 2. Core Functionality (4-6 weeks)
    - Test-driven development of:
