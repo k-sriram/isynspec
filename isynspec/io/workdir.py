@@ -48,6 +48,27 @@ class WorkingDirConfig:
         if self.specified_path and isinstance(self.specified_path, str):
             self.specified_path = Path(self.specified_path)
 
+    @classmethod
+    def from_dict(cls, config_dict: dict) -> Self:
+        """Create a WorkingDirConfig instance from a dictionary.
+
+        Args:
+            config_dict: Dictionary containing configuration options.
+
+        Returns:
+            An instance of WorkingDirConfig with the provided settings.
+        """
+        # In normal usage, these defaults will be overridden by defaults in config.py
+        strategy = WorkingDirStrategy(config_dict.get("strategy", "CURRENT"))
+        specified_path = config_dict.get("specified_path")
+        preserve_temp = config_dict.get("preserve_temp", False)
+
+        return cls(
+            strategy=strategy,
+            specified_path=specified_path,
+            preserve_temp=preserve_temp,
+        )
+
 
 class WorkingDirectory:
     """Manages the working directory for SYNSPEC operations.

@@ -12,6 +12,34 @@ from isynspec.config import (
     load_config,
     load_config_str,
 )
+from isynspec.io.execution import (
+    ExecutionConfig,
+    ExecutionStrategy,
+    FileManagementConfig,
+    Shell,
+)
+from isynspec.io.workdir import WorkingDirConfig, WorkingDirStrategy
+from isynspec.session import ISynspecConfig, ISynspecSession
+
+
+@pytest.fixture
+def sample_config() -> dict[str, dict]:
+    """Create a sample configuration dictionary."""
+    return {
+        "working_dir": {"strategy": "TEMPORARY", "preserve_temp": True},
+        "execution": {
+            "strategy": "CUSTOM",
+            "custom_executable": "/path/to/synspec",
+            "shell": "BASH",
+            "file_management": {
+                "copy_input_files": True,
+                "copy_output_files": True,
+                "output_directory": "/path/to/output",
+                "input_files": ["input1.dat", "input2.dat"],
+                "output_files": ["output1.dat", "output2.dat"],
+            },
+        },
+    }
 
 
 def test_load_config_str_empty():
@@ -129,3 +157,108 @@ def test_convert_config_paths_to_strings():
     assert result["paths"] == [str(Path("/path1")), str(Path("/path2"))]
     assert result["nested"]["path"] == str(Path("/nested/path"))
     assert result["nested"]["other"] == "value"
+
+
+def test_working_dir_config_from_dict(sample_config: dict[str, dict]) -> None:
+    """Test WorkingDirConfig.from_dict method."""
+    config = WorkingDirConfig.from_dict(sample_config["working_dir"])
+
+    assert config.strategy == WorkingDirStrategy.TEMPORARY
+    assert config.preserve_temp is True
+    assert config.specified_path is None
+
+
+def test_working_dir_config_from_dict_defaults() -> None:
+    """Test WorkingDirConfig.from_dict with empty dict."""
+    config = WorkingDirConfig.from_dict({})
+
+    assert config.strategy == WorkingDirStrategy.CURRENT
+    assert config.preserve_temp is False
+    assert config.specified_path is None
+
+
+def test_working_dir_config_from_dict_with_specified_path() -> None:
+    """Test WorkingDirConfig.from_dict with specified path."""
+    config = WorkingDirConfig.from_dict(
+        {"strategy": "SPECIFIED", "specified_path": "/path/to/dir"}
+    )
+
+    assert config.strategy == WorkingDirStrategy.SPECIFIED
+    assert config.specified_path == Path("/path/to/dir")
+
+
+def test_file_management_config_from_dict(sample_config: dict[str, dict]) -> None:
+    """Test FileManagementConfig.from_dict method."""
+    config = FileManagementConfig.from_dict(
+        sample_config["execution"]["file_management"]
+    )
+
+    assert config.copy_input_files is True
+    assert config.copy_output_files is True
+    assert config.output_directory == Path("/path/to/output")
+    assert config.input_files == [Path("input1.dat"), Path("input2.dat")]
+    assert config.output_files == [Path("output1.dat"), Path("output2.dat")]
+
+
+def test_file_management_config_from_dict_defaults() -> None:
+    """Test FileManagementConfig.from_dict with empty dict."""
+    config = FileManagementConfig.from_dict({})
+
+    assert config.copy_input_files is True
+    assert config.copy_output_files is False
+    assert config.output_directory is None
+    assert config.input_files is None
+    assert config.output_files is None
+
+
+def test_execution_config_from_dict(sample_config: dict[str, dict]) -> None:
+    """Test ExecutionConfig.from_dict method."""
+    config = ExecutionConfig.from_dict(sample_config["execution"])
+
+    assert config.strategy == ExecutionStrategy.CUSTOM
+    assert config.custom_executable == Path("/path/to/synspec")
+    assert config.shell == Shell.BASH
+    assert isinstance(config.file_management, FileManagementConfig)
+
+
+def test_execution_config_from_dict_defaults() -> None:
+    """Test ExecutionConfig.from_dict with empty dict."""
+    config = ExecutionConfig.from_dict({})
+
+    assert config.strategy == ExecutionStrategy.SYNSPEC
+    assert config.custom_executable is None
+    assert config.script_path is None
+    assert config.shell == Shell.AUTO
+
+
+def test_isynspec_config_from_dict(sample_config: dict[str, dict]) -> None:
+    """Test ISynspecConfig.from_dict method."""
+    config = ISynspecConfig.from_dict(sample_config)
+
+    assert isinstance(config.working_dir_config, WorkingDirConfig)
+    assert config.working_dir_config.strategy == WorkingDirStrategy.TEMPORARY
+    assert isinstance(config.execution_config, ExecutionConfig)
+    assert config.execution_config.strategy == ExecutionStrategy.CUSTOM
+
+
+def test_isynspec_config_from_dict_defaults() -> None:
+    """Test ISynspecConfig.from_dict with empty dict."""
+    config = ISynspecConfig.from_dict({})
+
+    assert config.working_dir_config.strategy == WorkingDirStrategy.CURRENT
+    assert config.execution_config.strategy == ExecutionStrategy.SYNSPEC
+
+
+def test_session_from_config_file(tmp_path: Path) -> None:
+    """Test ISynspecSession.from_config_file method."""
+    config_file = tmp_path / "test_config.json"
+    config_data = {
+        "working_dir": {"strategy": "TEMPORARY"},
+        "execution": {"strategy": "SYNSPEC", "shell": "AUTO"},
+    }
+    config_file.write_text(json.dumps(config_data))
+
+    session = ISynspecSession.from_config_file(config_file)
+    assert isinstance(session, ISynspecSession)
+    assert session.config.working_dir_config.strategy == WorkingDirStrategy.TEMPORARY
+    assert session.config.execution_config.strategy == ExecutionStrategy.SYNSPEC

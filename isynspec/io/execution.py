@@ -101,6 +101,37 @@ class FileManagementConfig:
     input_files: FileList | None = None
     output_files: FileList | None = None
 
+    @classmethod
+    def from_dict(cls, config_dict: dict) -> Self:
+        """Create a FileManagementConfig instance from a dictionary.
+
+        Args:
+            config_dict: Dictionary containing configuration options.
+
+        Returns:
+            An instance of FileManagementConfig with the provided settings.
+        """
+        # In normal usage, these defaults will be overridden by defaults in config.py
+        return cls(
+            copy_input_files=config_dict.get("copy_input_files", True),
+            copy_output_files=config_dict.get("copy_output_files", False),
+            output_directory=(
+                Path(config_dict.get("output_directory"))  # type: ignore[arg-type]
+                if config_dict.get("output_directory")
+                else None
+            ),
+            input_files=(
+                [Path(f) for f in config_dict.get("input_files", [])]
+                if config_dict.get("input_files")
+                else None
+            ),
+            output_files=(
+                [Path(f) for f in config_dict.get("output_files", [])]
+                if config_dict.get("output_files")
+                else None
+            ),
+        )
+
 
 @dataclass
 class ExecutionConfig:
@@ -138,6 +169,39 @@ class ExecutionConfig:
         ):
             msg = "must provide output_directory when copy_output_files is True"
             raise ValueError(msg)
+
+    @classmethod
+    def from_dict(cls, config_dict: dict) -> Self:
+        """Create an ExecutionConfig instance from a dictionary.
+
+        Args:
+            config_dict: Dictionary containing configuration options.
+
+        Returns:
+            An instance of ExecutionConfig with the provided settings.
+        """
+        # In normal usage, these defaults will be overridden by defaults in config.py
+        strategy = ExecutionStrategy(config_dict.get("strategy", "SYNSPEC"))
+        custom_executable = (
+            Path(config_dict["custom_executable"])
+            if config_dict.get("custom_executable")
+            else None
+        )
+        script_path = (
+            Path(config_dict["script_path"]) if config_dict.get("script_path") else None
+        )
+        file_management = FileManagementConfig.from_dict(
+            config_dict.get("file_management", {})
+        )
+        shell = Shell(config_dict.get("shell", "AUTO"))
+
+        return cls(
+            strategy=strategy,
+            custom_executable=custom_executable,
+            script_path=script_path,
+            file_management=file_management,
+            shell=shell,
+        )
 
 
 class ExecutionError(Exception):

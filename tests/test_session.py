@@ -19,7 +19,6 @@ def test_session_initialization():
 def test_default_config():
     """Test default configuration values."""
     config = ISynspecConfig()
-    assert config.synspec_path is None
     assert config.working_dir_config.strategy == WorkingDirStrategy.CURRENT
 
 

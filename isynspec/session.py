@@ -3,8 +3,9 @@
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import TracebackType
-from typing import Type
+from typing import Any, Self, Type
 
+from .config import load_config
 from .io.execution import ExecutionConfig
 from .io.workdir import WorkingDirConfig, WorkingDirectory, WorkingDirStrategy
 
@@ -14,25 +15,35 @@ class ISynspecConfig:
     """Configuration for ISynspec session.
 
     Attributes:
-        synspec_path: Path to the SYNSPEC executable
         working_dir_config: Configuration for working directory management
         execution_config: Configuration for execution strategy and file management
     """
 
-    synspec_path: Path | None = None
     working_dir_config: WorkingDirConfig = field(
         default_factory=lambda: WorkingDirConfig(strategy=WorkingDirStrategy.CURRENT)
     )
     execution_config: ExecutionConfig = field(default_factory=ExecutionConfig)
 
-    # def asdict(self) -> dict[str, Any]:
-    #     """Convert configuration to a dictionary."""
-    #     config_dict = {
-    #         "synspec_path": self.synspec_path,
-    #         "working_dir": asdict(self.working_dir_config),
-    #         "execution": asdict(self.execution_config),
-    #     }
-    #     return config_dict
+    @classmethod
+    def from_dict(self, config_dict: dict[str, Any]) -> Self:
+        """Create an ISynspecConfig instance from a configuration dictionary.
+
+        Args:
+            config_dict: Dictionary containing configuration options.
+
+        Returns:
+            An instance of ISynspecConfig with the provided settings.
+        """
+        # In normal usage, these defaults will be overridden by defaults in config.py
+        working_dir_config = WorkingDirConfig.from_dict(
+            config_dict.get("working_dir", {})
+        )
+        execution_config = ExecutionConfig.from_dict(config_dict.get("execution", {}))
+
+        return self(
+            working_dir_config=working_dir_config,
+            execution_config=execution_config,
+        )
 
 
 class ISynspecSession:
@@ -56,6 +67,19 @@ class ISynspecSession:
         """
         self.config = config if config is not None else ISynspecConfig()
         self._working_dir: WorkingDirectory | None = None
+
+    @classmethod
+    def from_config_file(cls, config_path: str | Path) -> Self:
+        """Create a session from a configuration file.
+
+        Args:
+            config_path: Path to the configuration file
+
+        Returns:
+            An instance of ISynspecSession initialized with the provided configuration.
+        """
+        config = load_config(config_path)
+        return cls(config=ISynspecConfig.from_dict(config))
 
     def _prepare_working_directory(self) -> None:
         """Prepare the working directory with input files if needed."""
