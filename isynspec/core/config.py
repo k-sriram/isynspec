@@ -13,6 +13,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "specified_path": None,
         "preserve_temp": False,
     },
+    # Directory containing model files, if None use current directory
+    "model_dir": None,
     "execution": {
         "strategy": "SYNSPEC",
         "custom_executable": None,
@@ -24,6 +26,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "output_directory": None,
             "input_files": None,
             "output_files": None,
+            # If True, symlink model.7 to fort.8 instead of copying
+            "use_symlinks": False,
         },
     },
 }
@@ -75,7 +79,7 @@ def load_config_str(config_str: str) -> dict[str, Any]:
 
 def _convert_paths(config_dict: dict[str, Any]) -> dict[str, Any]:
     """Convert path strings to Path objects in configuration."""
-    convert_dict_value_to_path(config_dict, "synspec_path")
+    convert_dict_value_to_path(config_dict, "model_dir")
     convert_dict_value_to_path(config_dict["working_dir"], "specified_path")
     convert_dict_value_to_path(config_dict["execution"], "custom_executable")
     convert_dict_value_to_path(config_dict["execution"], "script_path")

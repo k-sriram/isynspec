@@ -17,12 +17,14 @@ class ISynspecConfig:
     Attributes:
         working_dir_config: Configuration for working directory management
         execution_config: Configuration for execution strategy and file management
+        model_dir: Directory containing model files, if None use current directory
     """
 
     working_dir_config: WorkingDirConfig = field(
         default_factory=lambda: WorkingDirConfig(strategy=WorkingDirStrategy.CURRENT)
     )
     execution_config: ExecutionConfig = field(default_factory=ExecutionConfig)
+    model_dir: Path | None = None
 
     @classmethod
     def from_dict(self, config_dict: dict[str, Any]) -> Self:
@@ -39,10 +41,14 @@ class ISynspecConfig:
             config_dict.get("working_dir", {})
         )
         execution_config = ExecutionConfig.from_dict(config_dict.get("execution", {}))
+        model_dir = config_dict.get("model_dir")
+        if model_dir is not None:
+            model_dir = Path(model_dir)
 
         return self(
             working_dir_config=working_dir_config,
             execution_config=execution_config,
+            model_dir=model_dir,
         )
 
 
@@ -187,10 +193,14 @@ class ISynspecSession:
                 "Session not initialized. Use with-statement or call init()"
             )
 
-        # Check if model files exist
-        model_atm = Path(f"{model}.7")
-        model_input = Path(f"{model}.5")
+        if self.config.model_dir:
+            model_atm = self.config.model_dir / f"{model}.7"
+            model_input = self.config.model_dir / f"{model}.5"
+        else:
+            model_atm = Path(f"{model}.7")
+            model_input = Path(f"{model}.5")
 
+        # Check if model files exist
         if not model_atm.exists():
             raise FileNotFoundError(f"Model atmosphere file not found: {model_atm}")
         if not model_input.exists():
@@ -201,9 +211,13 @@ class ISynspecSession:
         if dst.exists():
             dst.unlink()
 
-        import shutil
+        # Use symlink or copy based on configuration
+        if self.config.execution_config.file_management.use_symlinks:
+            dst.symlink_to(model_atm)
+        else:
+            import shutil
 
-        shutil.copy2(model_atm, dst)
+            shutil.copy2(model_atm, dst)
 
         # Run SYNSPEC with stdin from model.5 and stdout to model.log
         from isynspec.io.execution import SynspecExecutor

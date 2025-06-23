@@ -93,6 +93,7 @@ class FileManagementConfig:
         output_directory: Directory to copy output files to
         input_files: List of input files to copy (if None, copy all required files)
         output_files: List of output files to copy (if None, copy all output files)
+        use_symlinks: If True, symlink model.7 to fort.8 instead of copying
     """
 
     copy_input_files: bool = True
@@ -100,6 +101,7 @@ class FileManagementConfig:
     output_directory: Path | None = None
     input_files: FileList | None = None
     output_files: FileList | None = None
+    use_symlinks: bool = False
 
     @classmethod
     def from_dict(cls, config_dict: dict) -> Self:
@@ -130,6 +132,7 @@ class FileManagementConfig:
                 if config_dict.get("output_files")
                 else None
             ),
+            use_symlinks=config_dict.get("use_symlinks", False),
         )
 
 
