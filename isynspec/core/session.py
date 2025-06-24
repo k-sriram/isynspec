@@ -7,7 +7,7 @@ from types import TracebackType
 from typing import Any, Self, Type
 
 from isynspec.core.config import load_config
-from isynspec.io.execution import ExecutionConfig
+from isynspec.io.execution import ExecutionConfig, SynspecExecutor
 from isynspec.io.workdir import WorkingDirConfig, WorkingDirectory, WorkingDirStrategy
 
 
@@ -219,13 +219,9 @@ class ISynspecSession:
         if self.config.execution_config.file_management.use_symlinks:
             dst.symlink_to(model_atm)
         else:
-            import shutil
-
             shutil.copy2(model_atm, dst)
 
         # Run SYNSPEC with stdin from model.5 and stdout to model.log
-        from isynspec.io.execution import SynspecExecutor
-
         executor = SynspecExecutor(
             config=self.config.execution_config,
             working_dir=self.working_dir,

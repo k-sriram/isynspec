@@ -3,6 +3,7 @@
 import tempfile
 from pathlib import Path
 
+import platformdirs
 import pytest
 
 from isynspec.core.session import ISynspecConfig, ISynspecSession
@@ -58,8 +59,6 @@ def test_session_with_temporary_dir():
 
 def test_session_with_user_data_dir():
     """Test session with user data directory."""
-    import platformdirs
-
     config = ISynspecConfig(
         working_dir_config=WorkingDirConfig(strategy=WorkingDirStrategy.USER_DATA)
     )
