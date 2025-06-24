@@ -7,6 +7,7 @@ import pytest
 
 from isynspec.core.session import ISynspecConfig, ISynspecSession
 from isynspec.io.execution import ExecutionConfig, FileManagementConfig
+from isynspec.io.workdir import WorkingDirConfig, WorkingDirStrategy
 
 
 def test_model_dir_config(tmp_path: Path, test_data_dir: Path, mock_run_command):
@@ -22,7 +23,10 @@ def test_model_dir_config(tmp_path: Path, test_data_dir: Path, mock_run_command)
         dst.write_bytes(src.read_bytes())
 
     # Create config with model_dir
-    config = ISynspecConfig(model_dir=model_dir)
+    config = ISynspecConfig(
+        model_dir=model_dir,
+        working_dir_config=WorkingDirConfig(strategy=WorkingDirStrategy.TEMPORARY),
+    )
 
     with ISynspecSession(config=config) as session:
         # This should succeed since files are in model_dir
@@ -42,7 +46,10 @@ def test_model_dir_config(tmp_path: Path, test_data_dir: Path, mock_run_command)
 
 def test_model_dir_not_found(tmp_path: Path):
     """Test that appropriate error is raised when model files don't exist."""
-    config = ISynspecConfig(model_dir=tmp_path)
+    config = ISynspecConfig(
+        model_dir=tmp_path,
+        working_dir_config=WorkingDirConfig(strategy=WorkingDirStrategy.TEMPORARY),
+    )
 
     with pytest.raises(FileNotFoundError) as exc_info:
         with ISynspecSession(config=config) as session:
