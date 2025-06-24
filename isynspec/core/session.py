@@ -88,8 +88,12 @@ class ISynspecSession:
         config = load_config(config_path)
         return cls(config=ISynspecConfig.from_dict(config))
 
-    def _prepare_working_directory(self) -> None:
-        """Prepare the working directory with input files if needed."""
+    def _prepare_working_directory(self, model: str) -> None:
+        """Prepare the working directory with input files if needed.
+
+        Args:
+            model: Base name of the model files (without extension)
+        """
         if not self.config.execution_config.file_management.copy_input_files:
             return
 
@@ -97,16 +101,33 @@ class ISynspecSession:
         # TODO: If input_files is None, copy all required files
         # For now, copy specified files
         if input_files:
-
             for source_path, rename_path in input_files:
-                if source_path.exists():
-                    # Use the renamed path if provided, otherwise use original filename
-                    dst_name = rename_path.name if rename_path else source_path.name
-                    dst = self.working_dir / dst_name
-                    shutil.copy2(source_path, dst)
+                # Format any path strings that contain {model}
+                source = Path(str(source_path).format(model=model))
+                if rename_path:
+                    rename = Path(str(rename_path).format(model=model))
+                else:
+                    rename = None
 
-    def _collect_output_files(self) -> None:
-        """Copy output files to output directory if configured."""
+                if source.exists():
+                    # Use the renamed path if provided, otherwise use original filename
+                    dst_name = rename.name if rename else source.name
+                    dst = self.working_dir / dst_name
+                    shutil.copy2(source, dst)
+
+    def _collect_output_files(self, model: str) -> None:
+        """Copy output files to output directory if configured.
+
+        If output_files is not specified in the configuration, the following default
+        mappings will be used:
+            - fort.7 -> {model}.spec (main spectrum output)
+            - fort.17 -> {model}.cont (continuum data)
+            - fort.12 -> {model}.iden (line identifications)
+            - fort.16 -> {model}.eqws (equivalent widths)
+
+        Args:
+            model: Base name of the model files (without extension)
+        """
         if not self.config.execution_config.file_management.copy_output_files:
             return
 
@@ -115,19 +136,32 @@ class ISynspecSession:
             return
 
         output_files = self.config.execution_config.file_management.output_files
-        # TODO: If output_files is None, copy all output files
-        # For now, copy specified files
-        if output_files:
-            output_dir.mkdir(parents=True, exist_ok=True)
+        # If output_files is None, use default mapping
+        if output_files is None:
+            output_files = [
+                (Path("fort.7"), Path(f"{model}.spec")),  # Main spectrum output
+                (Path("fort.17"), Path(f"{model}.cont")),  # Continuum data
+                (Path("fort.12"), Path(f"{model}.iden")),  # Line identifications
+                (Path("fort.16"), Path(f"{model}.eqws")),  # Equivalent widths
+            ]
 
-            for source_path, rename_path in output_files:
-                # For output collection, source_path is the name in the working dir
-                src = self.working_dir / source_path.name
-                if src.exists():
-                    # Use the renamed path if provided, otherwise use original filename
-                    dst_name = rename_path.name if rename_path else source_path.name
-                    dst = output_dir / dst_name
-                    shutil.copy2(src, dst)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        for source_path, rename_path in output_files:
+            # Format any path strings that contain {model}
+            source = Path(str(source_path).format(model=model))
+            if rename_path:
+                rename = Path(str(rename_path).format(model=model))
+            else:
+                rename = None
+
+            # For output collection, source_path is the name in the working dir
+            src = self.working_dir / source.name
+            if src.exists():
+                # Use the renamed path if provided, otherwise use original filename
+                dst_name = rename.name if rename else source.name
+                dst = output_dir / dst_name
+                shutil.copy2(src, dst)
 
     @property
     def working_dir(self) -> Path:
@@ -145,27 +179,38 @@ class ISynspecSession:
             )
         return self._working_dir.path
 
-    def init(self) -> None:
+    def init(self, model: str | None = None) -> None:
         """Initialize the SYNSPEC session.
 
         This method is called automatically when using the context manager,
         but can be called manually for longer-running sessions.
+
+        Args:
+            model: Base name of the model files (without extension). Required if using
+                  file management with paths containing {model} placeholders.
         """
         if not self._working_dir:
             self._working_dir = WorkingDirectory(self.config.working_dir_config)
             self._working_dir.path  # Initialize the directory
-            self._prepare_working_directory()
+            if model is not None:
+                self._prepare_working_directory(model)
 
-    def cleanup(self) -> None:
-        """Clean up the session resources."""
+    def cleanup(self, model: str | None = None) -> None:
+        """Clean up the session resources.
+
+        Args:
+            model: Base name of the model files (without extension). Required if using
+                  file management with paths containing {model} placeholders.
+        """
         if self._working_dir:
-            self._collect_output_files()
+            if model is not None:
+                self._collect_output_files(model)
             self._working_dir.cleanup()
             self._working_dir = None
 
     def __enter__(self) -> "ISynspecSession":
         """Initialize the session when entering context."""
-        self.init()
+        self.init()  # Model will be provided in run()
         return self
 
     def __exit__(
@@ -175,7 +220,7 @@ class ISynspecSession:
         exc_tb: TracebackType | None,
     ) -> None:
         """Clean up when exiting context."""
-        self.cleanup()
+        self.cleanup()  # No model needed if we're exiting context
 
     def run(self, model: str) -> None:
         """Run SYNSPEC calculation for a given model.
