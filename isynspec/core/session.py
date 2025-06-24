@@ -27,7 +27,7 @@ class ISynspecConfig:
     model_dir: Path | None = None
 
     @classmethod
-    def from_dict(self, config_dict: dict[str, Any]) -> Self:
+    def from_dict(cls, config_dict: dict[str, Any]) -> Self:
         """Create an ISynspecConfig instance from a configuration dictionary.
 
         Args:
@@ -45,7 +45,7 @@ class ISynspecConfig:
         if model_dir is not None:
             model_dir = Path(model_dir)
 
-        return self(
+        return cls(
             working_dir_config=working_dir_config,
             execution_config=execution_config,
             model_dir=model_dir,
