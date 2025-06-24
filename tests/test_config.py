@@ -111,7 +111,7 @@ def test_load_config_file_not_found():
 def test_convert_paths():
     """Test path conversion in configuration."""
     config = {
-        "synspec_path": "/path/to/synspec",
+        "model_dir": "/path/to/models",
         "working_dir": {"specified_path": "/path/to/workdir"},
         "execution": {
             "custom_executable": "/path/to/exe",
@@ -128,7 +128,7 @@ def test_convert_paths():
     file_mgmt = converted["execution"]["file_management"]
 
     # Check all paths are converted
-    assert isinstance(converted["synspec_path"], Path)
+    assert isinstance(converted["model_dir"], Path)
     assert isinstance(converted["working_dir"]["specified_path"], Path)
     assert isinstance(converted["execution"]["custom_executable"], Path)
     assert isinstance(converted["execution"]["script_path"], Path)
