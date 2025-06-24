@@ -10,7 +10,7 @@ Reference: SYNSPEC documentation
 from dataclasses import dataclass, field
 from enum import IntEnum
 from pathlib import Path
-from typing import Optional, Self
+from typing import Self
 
 from isynspec.utils.fortio import FortFloat, FortranReader
 
@@ -95,9 +95,9 @@ class Fort55:
     iunitm: list[int] = field(default_factory=list)
 
     # Optional parameters
-    vtb: Optional[float] = None  # Microturbulent velocity [km/s]
+    vtb: float | None = None  # Microturbulent velocity [km/s]
     nmu0: int = 0  # Number of emission angles
-    ang0: Optional[float] = None  # Angle for specific intensity
+    ang0: float | None = None  # Angle for specific intensity
     iflux: int = 0  # Flux integration flag
 
     @property

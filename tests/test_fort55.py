@@ -166,3 +166,19 @@ def test_fort55_invalid_wavelength_range(tmp_path: Path):
 
     with pytest.raises(ValueError, match="alam0.*must be less than or equal to.*alast"):
         config.write(tmp_path)
+
+
+def test_read_fort55(test_data_dir: Path):
+    """Test reading a valid fort.55 file."""
+    # Use a known valid fort.55 file from test data
+    config = Fort55.read(test_data_dir)
+
+    assert config.alam0 == 4000.0
+    assert config.alast == 4100.0
+    assert config.cutof0 == 0.001
+    assert config.relop == 1e-4
+    assert config.space == 0.01
+    assert config.imode == OperationMode.NORMAL
+    assert config.inmod == ModelType.TLUSTY
+    assert config.ifreq == RadiativeTransferSolver.DFE
+    assert config.vtb is None

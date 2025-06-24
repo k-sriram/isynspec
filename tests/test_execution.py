@@ -205,54 +205,12 @@ def test_path_normalization(tmp_path: Path):
     assert str(script_path.resolve()) in cmd[-1]
 
 
-def test_execution_with_io_redirection(tmp_path, monkeypatch):
+def test_execution_with_io_redirection(tmp_path, mock_run_command):
     """Test execution with input/output redirection."""
     # Create test input/output paths
     input_file = tmp_path / "input.txt"
     stdout_file = tmp_path / "stdout.txt"
     stderr_file = tmp_path / "stderr.txt"
-
-    # Mock _run_command to verify it's called with correct arguments
-    run_command_args: (
-        tuple[list[str], Path, bool, Path | None, Path | None, Path | None] | None
-    ) = None
-
-    def mock_run_command(
-        cmd: list[str],
-        working_dir: Path,
-        use_shell: bool = False,
-        stdin_file: Path | None = None,
-        stdout_file: Path | None = None,
-        stderr_file: Path | None = None,
-    ) -> None:
-        nonlocal run_command_args
-        run_command_args = (
-            cmd,
-            working_dir,
-            use_shell,
-            stdin_file,
-            stdout_file,
-            stderr_file,
-        )
-        if stdin_file is not None:
-            input_ = stdin_file.read_text()
-        else:
-            input_ = "default input"
-        # Simulate command execution by creating expected output files
-        output = f"Received input: {input_}"
-        err = "No errors"
-        if stdout_file is not None:
-            stdout_file.write_text(output)
-        else:
-            print(output)
-        if stderr_file is not None:
-            stderr_file.write_text(err)
-        else:
-            print(err, file=sys.stderr)
-        for filename in EXPECTED_OUTPUT_FILES:
-            (working_dir / filename).touch()
-
-    monkeypatch.setattr("isynspec.io.execution._run_command", mock_run_command)
 
     # Create configuration for a SYNSPEC execution
     input_file.write_text("Test input data")
@@ -272,6 +230,7 @@ def test_execution_with_io_redirection(tmp_path, monkeypatch):
         stdin_file=input_file, stdout_file=stdout_file, stderr_file=stderr_file
     )
 
+    run_command_args = mock_run_command()
     # Verify _run_command was called with correct arguments
     assert run_command_args is not None
 
