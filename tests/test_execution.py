@@ -30,13 +30,15 @@ def test_default_execution_config():
 def test_file_management_config(tmp_path: Path):
     """Test file management configuration."""
     output_dir = tmp_path / "output"
+
+    # Test configuration with simple paths
     config = ExecutionConfig(
         file_management=FileManagementConfig(
             copy_input_files=True,
             copy_output_files=True,
             output_directory=output_dir,
-            input_files=[Path("input.dat")],
-            output_files=[Path("output.dat")],
+            input_files=[(Path("input.dat"), None)],
+            output_files=[(Path("output.dat"), None)],
         ),
     )
     assert config.file_management.copy_input_files is True
@@ -44,8 +46,43 @@ def test_file_management_config(tmp_path: Path):
     assert config.file_management.output_directory == output_dir
     assert config.file_management.input_files is not None
     assert config.file_management.output_files is not None
-    assert config.file_management.input_files[0] == Path("input.dat")
-    assert config.file_management.output_files[0] == Path("output.dat")
+    assert config.file_management.input_files[0] == (Path("input.dat"), None)
+    assert config.file_management.output_files[0] == (Path("output.dat"), None)
+
+    # Test configuration with renamed files
+    config_with_renames = ExecutionConfig(
+        file_management=FileManagementConfig(
+            copy_input_files=True,
+            copy_output_files=True,
+            output_directory=output_dir,
+            input_files=[
+                (Path("input.dat"), Path("renamed_input.dat")),
+                (Path("input2.dat"), None),
+            ],
+            output_files=[
+                (Path("output.dat"), Path("renamed_output.dat")),
+                (Path("output2.dat"), None),
+            ],
+        ),
+    )
+    assert config_with_renames.file_management.input_files is not None
+    assert config_with_renames.file_management.output_files is not None
+    assert config_with_renames.file_management.input_files[0] == (
+        Path("input.dat"),
+        Path("renamed_input.dat"),
+    )
+    assert config_with_renames.file_management.input_files[1] == (
+        Path("input2.dat"),
+        None,
+    )
+    assert config_with_renames.file_management.output_files[0] == (
+        Path("output.dat"),
+        Path("renamed_output.dat"),
+    )
+    assert config_with_renames.file_management.output_files[1] == (
+        Path("output2.dat"),
+        None,
+    )
 
 
 def test_invalid_execution_config():

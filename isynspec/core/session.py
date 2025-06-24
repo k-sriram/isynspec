@@ -1,5 +1,6 @@
 """Main interface for interacting with SYNSPEC."""
 
+import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import TracebackType
@@ -96,12 +97,13 @@ class ISynspecSession:
         # TODO: If input_files is None, copy all required files
         # For now, copy specified files
         if input_files:
-            for file_path in input_files:
-                if file_path.exists():
-                    import shutil
 
-                    dst = self.working_dir / file_path.name
-                    shutil.copy2(file_path, dst)
+            for source_path, rename_path in input_files:
+                if source_path.exists():
+                    # Use the renamed path if provided, otherwise use original filename
+                    dst_name = rename_path.name if rename_path else source_path.name
+                    dst = self.working_dir / dst_name
+                    shutil.copy2(source_path, dst)
 
     def _collect_output_files(self) -> None:
         """Copy output files to output directory if configured."""
@@ -117,12 +119,14 @@ class ISynspecSession:
         # For now, copy specified files
         if output_files:
             output_dir.mkdir(parents=True, exist_ok=True)
-            import shutil
 
-            for file_path in output_files:
-                src = self.working_dir / file_path.name
+            for source_path, rename_path in output_files:
+                # For output collection, source_path is the name in the working dir
+                src = self.working_dir / source_path.name
                 if src.exists():
-                    dst = output_dir / file_path.name
+                    # Use the renamed path if provided, otherwise use original filename
+                    dst_name = rename_path.name if rename_path else source_path.name
+                    dst = output_dir / dst_name
                     shutil.copy2(src, dst)
 
     @property

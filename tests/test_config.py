@@ -189,15 +189,42 @@ def test_working_dir_config_from_dict_with_specified_path() -> None:
 
 def test_file_management_config_from_dict(sample_config: dict[str, dict]) -> None:
     """Test FileManagementConfig.from_dict method."""
-    config = FileManagementConfig.from_dict(
-        sample_config["execution"]["file_management"]
-    )
+    # Set up a config with both simple paths and renamed paths
+    config_dict = {
+        "copy_input_files": True,
+        "copy_output_files": True,
+        "output_directory": "/path/to/output",
+        "input_files": [
+            "input1.dat",  # Simple path
+            ["input2.dat", "renamed2.dat"],  # Renamed file
+            ("input3.dat", None),  # Explicit no rename
+        ],
+        "output_files": [
+            "output1.dat",  # Simple path
+            ["output2.dat", "renamed2.dat"],  # Renamed file
+            ("output3.dat", None),  # Explicit no rename
+        ],
+    }
+
+    config = FileManagementConfig.from_dict(config_dict)
 
     assert config.copy_input_files is True
     assert config.copy_output_files is True
     assert config.output_directory == Path("/path/to/output")
-    assert config.input_files == [Path("input1.dat"), Path("input2.dat")]
-    assert config.output_files == [Path("output1.dat"), Path("output2.dat")]
+
+    # Check input files
+    assert config.input_files is not None
+    assert len(config.input_files) == 3
+    assert config.input_files[0] == (Path("input1.dat"), None)
+    assert config.input_files[1] == (Path("input2.dat"), Path("renamed2.dat"))
+    assert config.input_files[2] == (Path("input3.dat"), None)
+
+    # Check output files
+    assert config.output_files is not None
+    assert len(config.output_files) == 3
+    assert config.output_files[0] == (Path("output1.dat"), None)
+    assert config.output_files[1] == (Path("output2.dat"), Path("renamed2.dat"))
+    assert config.output_files[2] == (Path("output3.dat"), None)
 
 
 def test_file_management_config_from_dict_defaults() -> None:

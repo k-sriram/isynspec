@@ -91,16 +91,20 @@ class FileManagementConfig:
         copy_input_files: Whether to copy input files to working directory
         copy_output_files: Whether to copy output files back
         output_directory: Directory to copy output files to
-        input_files: List of input files to copy (if None, copy all required files)
-        output_files: List of output files to copy (if None, copy all output files)
+        input_files: List of tuples (source_file, renamed_file) for input files.
+            If renamed_file is None, the original filename is used.
+            If None is provided for the whole list, copy all required files.
+        output_files: List of tuples (source_file, renamed_file) for output files.
+            If renamed_file is None, the original filename is used.
+            If None is provided for the whole list, copy all output files.
         use_symlinks: If True, symlink model.7 to fort.8 instead of copying
     """
 
     copy_input_files: bool = True
     copy_output_files: bool = False
     output_directory: Path | None = None
-    input_files: FileList | None = None
-    output_files: FileList | None = None
+    input_files: list[tuple[Path, Path | None]] | None = None
+    output_files: list[tuple[Path, Path | None]] | None = None
     use_symlinks: bool = False
 
     @classmethod
@@ -113,7 +117,35 @@ class FileManagementConfig:
         Returns:
             An instance of FileManagementConfig with the provided settings.
         """
-        # In normal usage, these defaults will be overridden by defaults in config.py
+        # Handle input files
+        input_files: list[tuple[Path, Path | None]] | None = None
+        if config_dict.get("input_files"):
+            input_files = []
+            for file_entry in config_dict["input_files"]:
+                if isinstance(file_entry, (str, Path)):
+                    input_files.append((Path(file_entry), None))
+                else:
+                    # Expect a tuple or list with 2 elements
+                    source, renamed = file_entry
+                    input_files.append(
+                        (Path(source), Path(renamed) if renamed is not None else None)
+                    )
+
+        # Handle output files
+        output_files: list[tuple[Path, Path | None]] | None = None
+        if config_dict.get("output_files"):
+            output_files = []
+            for file_entry in config_dict["output_files"]:
+                if isinstance(file_entry, (str, Path)):
+                    output_files.append((Path(file_entry), None))
+                else:
+                    # Expect a tuple or list with 2 elements
+                    source, renamed = file_entry
+                    output_files.append(
+                        (Path(source), Path(renamed) if renamed is not None else None)
+                    )
+
+        # Create and return the config instance
         return cls(
             copy_input_files=config_dict.get("copy_input_files", True),
             copy_output_files=config_dict.get("copy_output_files", False),
@@ -122,16 +154,8 @@ class FileManagementConfig:
                 if config_dict.get("output_directory")
                 else None
             ),
-            input_files=(
-                [Path(f) for f in config_dict.get("input_files", [])]
-                if config_dict.get("input_files")
-                else None
-            ),
-            output_files=(
-                [Path(f) for f in config_dict.get("output_files", [])]
-                if config_dict.get("output_files")
-                else None
-            ),
+            input_files=input_files,
+            output_files=output_files,
             use_symlinks=config_dict.get("use_symlinks", False),
         )
 
