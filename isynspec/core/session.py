@@ -200,6 +200,12 @@ class ISynspecSession:
                 source_file = Path(source_file)
             dest_file = dst_dir / rename_file
 
+            if dest_file == source_file:
+                # If source and destination are the same, skip copying
+                continue
+            if dest_file.exists():
+                # If destination file exists, remove it first
+                dest_file.unlink()
             # Copy the file or create a symlink
             if link:
                 dest_file.symlink_to(source_file)
