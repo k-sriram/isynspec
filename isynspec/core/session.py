@@ -102,17 +102,25 @@ class ISynspecSession:
         # For now, copy specified files
         if input_files:
             for source_path, rename_path in input_files:
-                # Format any path strings that contain {model}
-                source = Path(str(source_path).format(model=model))
-                if rename_path:
-                    rename = Path(str(rename_path).format(model=model))
-                else:
-                    rename = None
+                # Only format paths if they contain {model}
+                source = (
+                    Path(str(source_path).format(model=model))
+                    if "{model}" in str(source_path)
+                    else source_path
+                )
 
                 if source.exists():
-                    # Use the renamed path if provided, otherwise use original filename
-                    dst_name = rename.name if rename else source.name
-                    dst = self.working_dir / dst_name
+                    if rename_path:
+                        # Only format rename path if it contains {model}
+                        rename = (
+                            Path(str(rename_path).format(model=model))
+                            if "{model}" in str(rename_path)
+                            else rename_path
+                        )
+                        dst = self.working_dir / rename.name
+                    else:
+                        # When no rename path is specified, use original name
+                        dst = self.working_dir / source.name
                     shutil.copy2(source, dst)
 
     def _collect_output_files(self, model: str) -> None:
@@ -148,20 +156,49 @@ class ISynspecSession:
         output_dir.mkdir(parents=True, exist_ok=True)
 
         for source_path, rename_path in output_files:
-            # Format any path strings that contain {model}
-            source = Path(str(source_path).format(model=model))
-            if rename_path:
-                rename = Path(str(rename_path).format(model=model))
-            else:
-                rename = None
-
             # For output collection, source_path is the name in the working dir
+            source = (
+                Path(str(source_path).format(model=model))
+                if "{model}" in str(source_path)
+                else source_path
+            )
             src = self.working_dir / source.name
+
             if src.exists():
-                # Use the renamed path if provided, otherwise use original filename
-                dst_name = rename.name if rename else source.name
-                dst = output_dir / dst_name
+                if rename_path:
+                    # Only format rename path if it contains {model}
+                    rename = (
+                        Path(str(rename_path).format(model=model))
+                        if "{model}" in str(rename_path)
+                        else rename_path
+                    )
+                    dst = output_dir / rename.name
+                else:
+                    # When no rename path is specified, use original name
+                    dst = output_dir / source.name
                 shutil.copy2(src, dst)
+
+    def _check_model_required(self) -> bool:
+        """Check if any file paths contain {model} placeholders.
+
+        Returns:
+            True if any file paths contain {model} placeholders.
+        """
+        fm = self.config.execution_config.file_management
+
+        # Check input files
+        if fm.input_files:
+            for source, rename in fm.input_files:
+                if "{model}" in str(source) or (rename and "{model}" in str(rename)):
+                    return True
+
+        # Check output files
+        if fm.output_files:
+            for source, rename in fm.output_files:
+                if "{model}" in str(source) or (rename and "{model}" in str(rename)):
+                    return True
+
+        return False
 
     @property
     def working_dir(self) -> Path:
@@ -188,7 +225,16 @@ class ISynspecSession:
         Args:
             model: Base name of the model files (without extension). Required if using
                   file management with paths containing {model} placeholders.
+
+        Raises:
+            ValueError: If model parameter is missing but {model} placeholders are used
         """
+        # Check if model is required but not provided
+        if self._check_model_required() and model is None:
+            raise ValueError(
+                "model parameter is required when using {model} placeholders"
+            )
+
         if not self._working_dir:
             self._working_dir = WorkingDirectory(self.config.working_dir_config)
             self._working_dir.path  # Initialize the directory

@@ -7,6 +7,7 @@ import platformdirs
 import pytest
 
 from isynspec.core.session import ISynspecConfig, ISynspecSession
+from isynspec.io.execution import ExecutionConfig, FileManagementConfig
 from isynspec.io.workdir import WorkingDirConfig, WorkingDirStrategy
 
 
@@ -109,3 +110,193 @@ def test_config_independent_instances():
     # Verify that the configs are independent
     assert session1.config is not session2.config
     assert session1.config.working_dir_config is not session2.config.working_dir_config
+
+
+def test_file_management_with_model_placeholders(tmp_path: Path):
+    """Test file management with {model} placeholders in paths."""
+    # Set up test files
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    (input_dir / "test_model.dat").write_text("test data")
+
+    output_dir = tmp_path / "output"
+
+    # Configure session with model placeholders
+    config = ISynspecConfig(
+        working_dir_config=WorkingDirConfig(strategy=WorkingDirStrategy.TEMPORARY),
+        execution_config=ExecutionConfig(
+            file_management=FileManagementConfig(
+                copy_input_files=True,
+                copy_output_files=True,
+                output_directory=output_dir,
+                input_files=[
+                    (input_dir / "test_model.dat", Path("{model}.input")),
+                ],
+                output_files=[
+                    (Path("fort.7"), Path("{model}.output")),
+                ],
+            )
+        ),
+    )
+
+    # Test with model name
+    with ISynspecSession(config=config) as session:
+        session.init(model="mymodel")
+        # Check input file was renamed
+        assert (session.working_dir / "mymodel.input").exists()
+        assert (session.working_dir / "mymodel.input").read_text() == "test data"
+
+        # Simulate output file creation
+        (session.working_dir / "fort.7").write_text("test output")
+
+        # Cleanup will trigger output file collection
+
+    # Check output file was collected with model name
+    assert output_dir.exists()
+    assert (output_dir / "mymodel.output").exists()
+    assert (output_dir / "mymodel.output").read_text() == "test output"
+
+
+def test_default_output_file_mapping(tmp_path: Path):
+    """Test default output file mapping when output_files is None."""
+    output_dir = tmp_path / "output"
+
+    # Configure session with default output mapping
+    config = ISynspecConfig(
+        working_dir_config=WorkingDirConfig(strategy=WorkingDirStrategy.TEMPORARY),
+        execution_config=ExecutionConfig(
+            file_management=FileManagementConfig(
+                copy_output_files=True,
+                output_directory=output_dir,
+                output_files=None,  # Use default mapping
+            )
+        ),
+    )
+
+    with ISynspecSession(config=config) as session:
+        # Create mock SYNSPEC output files
+        fort_files = {
+            "fort.7": "spectrum data",
+            "fort.17": "continuum data",
+            "fort.12": "identifications",
+            "fort.16": "equivalent widths",
+        }
+        for name, content in fort_files.items():
+            (session.working_dir / name).write_text(content)
+
+        # Cleanup with model name
+        session.cleanup(model="mymodel")
+
+    # Check all default mappings were applied
+    expected_files = {
+        "mymodel.spec": "spectrum data",
+        "mymodel.cont": "continuum data",
+        "mymodel.iden": "identifications",
+        "mymodel.eqws": "equivalent widths",
+    }
+
+    assert output_dir.exists()
+    for fname, expected_content in expected_files.items():
+        out_file = output_dir / fname
+        assert out_file.exists(), f"Missing output file: {fname}"
+        assert out_file.read_text() == expected_content
+
+
+def test_file_management_without_renaming(tmp_path: Path):
+    """Test file management when rename paths are None."""
+    # Set up test files
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    (input_dir / "input.dat").write_text("test data")
+
+    output_dir = tmp_path / "output"
+
+    config = ISynspecConfig(
+        working_dir_config=WorkingDirConfig(strategy=WorkingDirStrategy.TEMPORARY),
+        execution_config=ExecutionConfig(
+            file_management=FileManagementConfig(
+                copy_input_files=True,
+                copy_output_files=True,
+                output_directory=output_dir,
+                input_files=[
+                    (input_dir / "input.dat", None),  # No renaming
+                ],
+                output_files=[
+                    (Path("output.dat"), None),  # No renaming
+                ],
+            )
+        ),
+    )
+
+    session = ISynspecSession(config=config)
+    session.init(model="mymodel")  # model parameter shouldn't affect paths
+    # Check input file kept original name
+    assert (session.working_dir / "input.dat").exists()
+    assert (session.working_dir / "input.dat").read_text() == "test data"
+
+    # Simulate output file creation
+    (session.working_dir / "output.dat").write_text("test output")
+
+    session.cleanup(model="mymodel")  # This will collect output files
+
+    # Check output file kept original name
+    assert output_dir.exists()
+    assert (output_dir / "output.dat").exists()
+    assert (output_dir / "output.dat").read_text() == "test output"
+
+
+def test_file_management_disabled(tmp_path: Path):
+    """Test that file management can be disabled."""
+    # Set up test files
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    (input_dir / "input.dat").write_text("test data")
+
+    output_dir = tmp_path / "output"
+
+    config = ISynspecConfig(
+        working_dir_config=WorkingDirConfig(strategy=WorkingDirStrategy.TEMPORARY),
+        execution_config=ExecutionConfig(
+            file_management=FileManagementConfig(
+                copy_input_files=False,  # Disable input copying
+                copy_output_files=False,  # Disable output copying
+                output_directory=output_dir,
+                input_files=[
+                    (input_dir / "input.dat", Path("renamed.dat")),
+                ],
+                output_files=[
+                    (Path("output.dat"), Path("collected.dat")),
+                ],
+            )
+        ),
+    )
+
+    with ISynspecSession(config=config) as session:
+        session.init(model="mymodel")
+        # Check no input file was copied
+        assert not (session.working_dir / "renamed.dat").exists()
+        assert not (session.working_dir / "input.dat").exists()
+
+        # Create output file
+        (session.working_dir / "output.dat").write_text("test output")
+
+    # Check no output file was collected
+    assert not output_dir.exists()
+
+
+def test_model_required_for_placeholders():
+    """Test that model is required when using {model} placeholders."""
+    config = ISynspecConfig(
+        execution_config=ExecutionConfig(
+            file_management=FileManagementConfig(
+                output_files=[
+                    (Path("fort.7"), Path("{model}.spec")),  # Has placeholder
+                ],
+            )
+        )
+    )
+
+    with pytest.raises(ValueError, match="model parameter is required"):
+        with ISynspecSession(config=config) as session:
+            # Should raise error since we use placeholders but don't provide model
+            session.init()
