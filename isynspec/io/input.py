@@ -1,6 +1,7 @@
 """Module for reading SYNSPEC's model input files."""
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Self
 
 
@@ -15,7 +16,7 @@ class InputData:
     nst_filename: str | None
 
     @classmethod
-    def from_file(cls, filepath: str) -> Self:
+    def from_file(cls, filepath: Path) -> Self:
         """Read SYNSPEC input file and return its contents.
 
         Args:

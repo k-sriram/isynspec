@@ -9,6 +9,7 @@ from typing import Any, Self, Type
 from isynspec.core.config import load_config
 from isynspec.io.execution import ExecutionConfig, SynspecExecutor
 from isynspec.io.fort55 import Fort55
+from isynspec.io.input import InputData
 from isynspec.io.workdir import WorkingDirConfig, WorkingDirectory, WorkingDirStrategy
 
 
@@ -240,6 +241,23 @@ class ISynspecSession:
         fort55 = Fort55.read(self.working_dir)
         if fort55.ichemc == 1 and not (self.working_dir / "fort.56").exists():
             raise FileNotFoundError("Required file fort.56 not found")
+
+        # Check for data directory
+        data_dir = self.working_dir / "data"
+        if not data_dir.exists():
+            raise FileNotFoundError(f"Required data directory {data_dir} not found")
+
+        # Check for nst file if in model_input
+        if self.config.model_dir:
+            model_input = self.config.model_dir / f"{model}.5"
+        else:
+            model_input = Path(f"{model}.5")
+
+        input_data = InputData.from_file(model_input)
+        if input_data.nst_filename:
+            nst_file = self.working_dir / input_data.nst_filename
+            if not nst_file.exists():
+                raise FileNotFoundError(f"Required NST file {nst_file} not found")
 
     @property
     def working_dir(self) -> Path:

@@ -68,3 +68,12 @@ def mock_run_command(monkeypatch):
 def test_data_dir() -> Path:
     """Get the test data directory."""
     return Path(__file__).parent / "data"
+
+
+@pytest.fixture
+def disable_validation(monkeypatch):
+    """Disable validation checks in ISynspecSession."""
+    monkeypatch.setattr(
+        "isynspec.core.session.ISynspecSession._validate_working_dir",
+        lambda *args, **kwargs: None,
+    )

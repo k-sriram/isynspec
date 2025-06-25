@@ -324,6 +324,8 @@ def session_with_model_input(tmp_path: Path, test_data_dir: Path):
         # Touch fort.56, and fort.19
         (session.working_dir / "fort.56").touch()
         (session.working_dir / "fort.19").touch()
+        (session.working_dir / "data").mkdir(exist_ok=True)
+        (session.working_dir / "nst").touch()
         yield session
 
 
@@ -333,7 +335,7 @@ def test_validate_valid(
     """Test that validate_working_dir does not raise error if all files are present."""
     session = session_with_model_input
 
-    session._validate_working_dir(model="test_model")
+    session.run("test_model")
 
 
 def test_validate_missing_fort55(session_with_model_input: ISynspecSession) -> None:
@@ -393,4 +395,30 @@ def test_validate_missing_fort19(
     (session.working_dir / "fort.19").unlink(missing_ok=True)
 
     with pytest.raises(FileNotFoundError, match="fort.19"):
+        session.run("test_model")
+
+
+def test_validate_missing_data_dir(
+    session_with_model_input: ISynspecSession, mock_run_command
+) -> None:
+    """Test that validate_working_dir raises error if data directory is missing."""
+    session = session_with_model_input
+
+    # Simulate missing data directory
+    (session.working_dir / "data").rmdir()
+
+    with pytest.raises(FileNotFoundError, match="data directory"):
+        session.run("test_model")
+
+
+def test_validate_missing_nst(
+    session_with_model_input: ISynspecSession, mock_run_command
+) -> None:
+    """Test that validate_working_dir raises error if nst file is missing."""
+    session = session_with_model_input
+
+    # Simulate missing nst file
+    (session.working_dir / "nst").unlink(missing_ok=True)
+
+    with pytest.raises(FileNotFoundError, match="Required NST file"):
         session.run("test_model")

@@ -10,7 +10,9 @@ from isynspec.io.execution import ExecutionConfig, FileManagementConfig
 from isynspec.io.workdir import WorkingDirConfig, WorkingDirStrategy
 
 
-def test_model_dir_config(tmp_path: Path, test_data_dir: Path, mock_run_command):
+def test_model_dir_config(
+    tmp_path: Path, test_data_dir: Path, mock_run_command, disable_validation: None
+) -> None:
     """Test that model_dir configuration works correctly."""
     # Copy test files to a separate model directory
     model_dir = tmp_path / "models"
@@ -142,7 +144,7 @@ def test_symlink_cleanup(tmp_path: Path, test_data_dir: Path, mock_run_command):
 
 
 def test_existing_fort8_replacement(
-    tmp_path: Path, test_data_dir: Path, mock_run_command
+    tmp_path: Path, test_data_dir: Path, mock_run_command, disable_validation: None
 ):
     """Test that existing fort.8 is properly replaced."""
     # Copy test files
