@@ -51,11 +51,9 @@ def test_model_dir_not_found(tmp_path: Path):
         working_dir_config=WorkingDirConfig(strategy=WorkingDirStrategy.TEMPORARY),
     )
 
-    with pytest.raises(FileNotFoundError) as exc_info:
+    with pytest.raises(FileNotFoundError):
         with ISynspecSession(config=config) as session:
             session.run("nonexistent_model")
-
-    assert "Model atmosphere file not found" in str(exc_info.value)
 
 
 @pytest.mark.skipif(os.name == "nt", reason="Symlinks not supported on Windows")

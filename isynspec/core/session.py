@@ -88,40 +88,41 @@ class ISynspecSession:
         config = load_config(config_path)
         return cls(config=ISynspecConfig.from_dict(config))
 
-    def _prepare_working_directory(self, model: str) -> None:
+    def _prepare_working_directory(self, model: str, model_atm: Path | None) -> None:
         """Prepare the working directory with input files if needed.
 
         Args:
             model: Base name of the model files (without extension)
+            model_atm: Path to the model atmosphere file
         """
+        # Copy or link the model atmosphere file
+        if model_atm is not None:
+            dst_atm = self.working_dir / "fort.8"
+            if dst_atm.exists():
+                dst_atm.unlink()
+            if self.config.execution_config.file_management.use_symlinks:
+                dst_atm.symlink_to(model_atm)
+            else:
+                shutil.copy2(model_atm, dst_atm)
+
         if not self.config.execution_config.file_management.copy_input_files:
             return
 
         input_files = self.config.execution_config.file_management.input_files
+        if input_files is None:
+            input_files = []
         # TODO: If input_files is None, copy all required files
         # For now, copy specified files
-        if input_files:
-            for source_path, rename_path in input_files:
-                # Only format paths if they contain {model}
-                source = (
-                    Path(str(source_path).format(model=model))
-                    if "{model}" in str(source_path)
-                    else source_path
-                )
 
-                if source.exists():
-                    if rename_path:
-                        # Only format rename path if it contains {model}
-                        rename = (
-                            Path(str(rename_path).format(model=model))
-                            if "{model}" in str(rename_path)
-                            else rename_path
-                        )
-                        dst = self.working_dir / rename.name
-                    else:
-                        # When no rename path is specified, use original name
-                        dst = self.working_dir / source.name
-                    shutil.copy2(source, dst)
+        link = self.config.execution_config.file_management.use_symlinks
+        print(link)
+        self._copy_files(
+            input_files,
+            None,
+            self.working_dir,
+            link=link,
+            substitutions={"model": model},
+        )
 
     def _collect_output_files(self, model: str) -> None:
         """Copy output files to output directory if configured.
@@ -141,9 +142,11 @@ class ISynspecSession:
 
         output_dir = self.config.execution_config.file_management.output_directory
         if not output_dir:
-            return
+            output_dir = Path.cwd()
 
-        output_files = self.config.execution_config.file_management.output_files
+        output_files: list[tuple[Path, Path | None]] | None = (
+            self.config.execution_config.file_management.output_files
+        )
         # If output_files is None, use default mapping
         if output_files is None:
             output_files = [
@@ -155,50 +158,53 @@ class ISynspecSession:
 
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        for source_path, rename_path in output_files:
-            # For output collection, source_path is the name in the working dir
-            source = (
-                Path(str(source_path).format(model=model))
-                if "{model}" in str(source_path)
-                else source_path
-            )
-            src = self.working_dir / source.name
+        self._copy_files(
+            output_files,
+            self.working_dir,
+            output_dir,
+            link=False,
+            substitutions={"model": model},
+        )
 
-            if src.exists():
-                if rename_path:
-                    # Only format rename path if it contains {model}
-                    rename = (
-                        Path(str(rename_path).format(model=model))
-                        if "{model}" in str(rename_path)
-                        else rename_path
-                    )
-                    dst = output_dir / rename.name
-                else:
-                    # When no rename path is specified, use original name
-                    dst = output_dir / source.name
-                shutil.copy2(src, dst)
+    def _copy_files(
+        self,
+        files: list[tuple[Path, Path | None]],
+        src_dir: Path | None,
+        dst_dir: Path | None,
+        link: bool = False,
+        substitutions: dict[str, str] = {},
+    ) -> None:
+        """Copy files from source to destination with optional renaming.
 
-    def _check_model_required(self) -> bool:
-        """Check if any file paths contain {model} placeholders.
-
-        Returns:
-            True if any file paths contain {model} placeholders.
+        Args:
+            files: List of tuples (source_path, rename_path)
+            src_dir: Source directory where files are located
+            dst_dir: Destination directory where files should be copied
+            link: If True, create symlinks instead of copying files
+            substitutions: Dictionary for string substitutions in file paths
         """
-        fm = self.config.execution_config.file_management
+        if src_dir is None:
+            src_dir = Path.cwd()
+        if dst_dir is None:
+            dst_dir = Path.cwd()
 
-        # Check input files
-        if fm.input_files:
-            for source, rename in fm.input_files:
-                if "{model}" in str(source) or (rename and "{model}" in str(rename)):
-                    return True
+        for source_file, rename_file in files:
+            # Apply substitutions to source path
+            source_file = Path(str(source_file).format(**substitutions))
+            if rename_file is None:
+                rename_file = Path(source_file.name)
+            rename_file = Path(str(rename_file).format(**substitutions))
+            if not Path(source_file).is_absolute():
+                source_file = src_dir / source_file
+            else:
+                source_file = Path(source_file)
+            dest_file = dst_dir / rename_file
 
-        # Check output files
-        if fm.output_files:
-            for source, rename in fm.output_files:
-                if "{model}" in str(source) or (rename and "{model}" in str(rename)):
-                    return True
-
-        return False
+            # Copy the file or create a symlink
+            if link:
+                dest_file.symlink_to(source_file)
+            else:
+                shutil.copy2(source_file, dest_file)
 
     @property
     def working_dir(self) -> Path:
@@ -216,32 +222,20 @@ class ISynspecSession:
             )
         return self._working_dir.path
 
-    def init(self, model: str | None = None) -> None:
+    def init(self) -> None:
         """Initialize the SYNSPEC session.
 
         This method is called automatically when using the context manager,
         but can be called manually for longer-running sessions.
 
-        Args:
-            model: Base name of the model files (without extension). Required if using
-                  file management with paths containing {model} placeholders.
-
         Raises:
             ValueError: If model parameter is missing but {model} placeholders are used
         """
-        # Check if model is required but not provided
-        if self._check_model_required() and model is None:
-            raise ValueError(
-                "model parameter is required when using {model} placeholders"
-            )
-
         if not self._working_dir:
             self._working_dir = WorkingDirectory(self.config.working_dir_config)
-            self._working_dir.path  # Initialize the directory
-            if model is not None:
-                self._prepare_working_directory(model)
+            self._working_dir.path
 
-    def cleanup(self, model: str | None = None) -> None:
+    def cleanup(self) -> None:
         """Clean up the session resources.
 
         Args:
@@ -249,14 +243,12 @@ class ISynspecSession:
                   file management with paths containing {model} placeholders.
         """
         if self._working_dir:
-            if model is not None:
-                self._collect_output_files(model)
             self._working_dir.cleanup()
             self._working_dir = None
 
-    def __enter__(self) -> "ISynspecSession":
+    def __enter__(self) -> Self:
         """Initialize the session when entering context."""
-        self.init()  # Model will be provided in run()
+        self.init()
         return self
 
     def __exit__(
@@ -266,7 +258,7 @@ class ISynspecSession:
         exc_tb: TracebackType | None,
     ) -> None:
         """Clean up when exiting context."""
-        self.cleanup()  # No model needed if we're exiting context
+        self.cleanup()
 
     def run(self, model: str) -> None:
         """Run SYNSPEC calculation for a given model.
@@ -274,7 +266,10 @@ class ISynspecSession:
         This method:
         1. Links/copies the model atmosphere file (*.7) as fort.8
         2. Uses the model input file (*.5) as stdin
-        3. Redirects stdout to a log file (*.log)
+        3. Copies/links input files if specified in the configuration
+        4. Runs the SYNSPEC executable with the provided model
+        5. Collects output files based on configuration, defaulting to synspec outputs
+        6. Redirects stdout to a log file (*.log)
 
         Args:
             model: Base name of the model files (without extension)
@@ -283,11 +278,6 @@ class ISynspecSession:
             RuntimeError: If session is not initialized
             FileNotFoundError: If required model files are missing
         """
-        if not self._working_dir:
-            raise RuntimeError(
-                "Session not initialized. Use with-statement or call init()"
-            )
-
         if self.config.model_dir:
             model_atm = self.config.model_dir / f"{model}.7"
             model_input = self.config.model_dir / f"{model}.5"
@@ -295,22 +285,9 @@ class ISynspecSession:
             model_atm = Path(f"{model}.7")
             model_input = Path(f"{model}.5")
 
-        # Check if model files exist
-        if not model_atm.exists():
-            raise FileNotFoundError(f"Model atmosphere file not found: {model_atm}")
-        if not model_input.exists():
-            raise FileNotFoundError(f"Model input file not found: {model_input}")
+        self._prepare_working_directory(model, model_atm)
 
-        # Set up model atmosphere as fort.8
-        dst = self.working_dir / "fort.8"
-        if dst.exists():
-            dst.unlink()
-
-        # Use symlink or copy based on configuration
-        if self.config.execution_config.file_management.use_symlinks:
-            dst.symlink_to(model_atm)
-        else:
-            shutil.copy2(model_atm, dst)
+        # TODO: Validate synspec is ready to run.
 
         # Run SYNSPEC with stdin from model.5 and stdout to model.log
         executor = SynspecExecutor(
@@ -322,3 +299,6 @@ class ISynspecSession:
             stdin_file=model_input,
             stdout_file=Path(f"{model}.log"),
         )
+
+        # Collect output files
+        self._collect_output_files(model)
