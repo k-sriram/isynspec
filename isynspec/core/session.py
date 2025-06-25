@@ -21,6 +21,7 @@ class ISynspecConfig:
         working_dir_config: Configuration for working directory management
         execution_config: Configuration for execution strategy and file management
         model_dir: Directory containing model files, if None use current directory
+        data_dir: Directory containing SYNSPEC data files
     """
 
     working_dir_config: WorkingDirConfig = field(
@@ -28,6 +29,7 @@ class ISynspecConfig:
     )
     execution_config: ExecutionConfig = field(default_factory=ExecutionConfig)
     model_dir: Path | None = None
+    data_dir: Path | None = None
 
     @classmethod
     def from_dict(cls, config_dict: dict[str, Any]) -> Self:
@@ -48,10 +50,15 @@ class ISynspecConfig:
         if model_dir is not None:
             model_dir = Path(model_dir)
 
+        data_dir = config_dict.get("data_dir")
+        if data_dir is not None:
+            data_dir = Path(data_dir)
+
         return cls(
             working_dir_config=working_dir_config,
             execution_config=execution_config,
             model_dir=model_dir,
+            data_dir=data_dir,
         )
 
 
@@ -110,6 +117,12 @@ class ISynspecSession:
         if not self.config.execution_config.file_management.copy_input_files:
             return
 
+        # Create data directory link if configured
+        if self.config.data_dir is not None:
+            data_dir = self.working_dir / "data"
+            if not data_dir.exists():
+                data_dir.symlink_to(self.config.data_dir, target_is_directory=True)
+
         input_files = self.config.execution_config.file_management.input_files
         if input_files is None:
             input_files = []
@@ -117,7 +130,6 @@ class ISynspecSession:
         # For now, copy specified files
 
         link = self.config.execution_config.file_management.use_symlinks
-        print(link)
         self._copy_files(
             input_files,
             None,

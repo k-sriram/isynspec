@@ -15,6 +15,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     },
     # Directory containing model files, if None use current directory
     "model_dir": None,
+    "data_dir": None,
     "execution": {
         "strategy": "SYNSPEC",
         "custom_executable": None,
