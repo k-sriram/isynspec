@@ -8,6 +8,7 @@ from typing import Any, Self, Type
 
 from isynspec.core.config import load_config
 from isynspec.io.execution import ExecutionConfig, SynspecExecutor
+from isynspec.io.fort55 import Fort55
 from isynspec.io.workdir import WorkingDirConfig, WorkingDirectory, WorkingDirStrategy
 
 
@@ -222,7 +223,23 @@ class ISynspecSession:
             RuntimeError: If working directory is not initialized
             FileNotFoundError: If required model files are missing
         """
-        ...
+        # Check for fort.8 (model atmosphere)
+        if not (self.working_dir / "fort.8").exists():
+            raise FileNotFoundError("Required file fort.8 not found")
+
+        # Check for fort.55
+        fort55_path = self.working_dir / "fort.55"
+        if not fort55_path.exists():
+            raise FileNotFoundError("Required file fort.55 not found")
+
+        # Check for fort.19 (line list)
+        if not (self.working_dir / "fort.19").exists():
+            raise FileNotFoundError("Required file fort.19 not found")
+
+        # Check fort.56 only if needed (when ichemc = 1 in fort.55)
+        fort55 = Fort55.read(self.working_dir)
+        if fort55.ichemc == 1 and not (self.working_dir / "fort.56").exists():
+            raise FileNotFoundError("Required file fort.56 not found")
 
     @property
     def working_dir(self) -> Path:
