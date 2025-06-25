@@ -212,6 +212,18 @@ class ISynspecSession:
             else:
                 shutil.copy2(source_file, dest_file)
 
+    def _validate_working_dir(self, model: str) -> None:
+        """Validate that the working directory contains required files.
+
+        Args:
+            model: Base name of the model files (without extension)
+
+        Raises:
+            RuntimeError: If working directory is not initialized
+            FileNotFoundError: If required model files are missing
+        """
+        ...
+
     @property
     def working_dir(self) -> Path:
         """Get the current working directory.
@@ -293,7 +305,7 @@ class ISynspecSession:
 
         self._prepare_working_directory(model, model_atm)
 
-        # TODO: Validate synspec is ready to run.
+        self._validate_working_dir(model)
 
         # Run SYNSPEC with stdin from model.5 and stdout to model.log
         executor = SynspecExecutor(

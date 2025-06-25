@@ -1,5 +1,6 @@
 """Tests for ISynspec session management."""
 
+import shutil
 import tempfile
 from pathlib import Path
 
@@ -8,6 +9,7 @@ import pytest
 
 from isynspec.core.session import ISynspecConfig, ISynspecSession
 from isynspec.io.execution import ExecutionConfig, FileManagementConfig
+from isynspec.io.fort55 import Fort55
 from isynspec.io.workdir import WorkingDirConfig, WorkingDirStrategy
 
 
@@ -284,3 +286,111 @@ def test_file_management_disabled(tmp_path: Path):
 
     # Check no output file was collected
     assert not output_dir.exists()
+
+
+def test_validate_missing_fort8(tmp_path: Path) -> None:
+    """Test that validate_working_dir raises error if fort.8 is missing."""
+    config = ISynspecConfig(
+        working_dir_config=WorkingDirConfig(strategy=WorkingDirStrategy.TEMPORARY),
+    )
+
+    with ISynspecSession(config=config) as session:
+        # Simulate missing fort.8
+        session.working_dir.mkdir(parents=True, exist_ok=True)
+
+        with pytest.raises(FileNotFoundError, match="fort.8"):
+            session._validate_working_dir(model="test_model")
+
+
+@pytest.fixture
+def session_with_model_input(tmp_path: Path, test_data_dir: Path):
+    """Fixture to create a session with a model input file."""
+    # Set up test files
+    input_dir = tmp_path / "input"
+    input_dir.mkdir()
+    for ext in [".5", ".7"]:
+        (input_dir / f"test_model{ext}").write_text(
+            (test_data_dir / f"test_model{ext}").read_text()
+        )
+
+    config = ISynspecConfig(
+        working_dir_config=WorkingDirConfig(strategy=WorkingDirStrategy.TEMPORARY),
+        model_dir=input_dir,  # Use input directory as model directory
+    )
+    with ISynspecSession(config=config) as session:
+        # Prepare all input files
+        # Copy fort.55 from test data to working directory
+        shutil.copy2(test_data_dir / "fort.55", session.working_dir / "fort.55")
+        # Touch fort.56, and fort.19
+        (session.working_dir / "fort.56").touch()
+        (session.working_dir / "fort.19").touch()
+        yield session
+
+
+def test_validate_valid(
+    session_with_model_input: ISynspecSession, mock_run_command
+) -> None:
+    """Test that validate_working_dir does not raise error if all files are present."""
+    session = session_with_model_input
+
+    session._validate_working_dir(model="test_model")
+
+
+def test_validate_missing_fort55(session_with_model_input: ISynspecSession) -> None:
+    """Test that validate_working_dir raises error if fort.55 is missing."""
+    session = session_with_model_input
+
+    # Simulate missing fort.55
+    (session.working_dir / "fort.55").unlink(missing_ok=True)
+
+    with pytest.raises(FileNotFoundError, match="fort.55"):
+        session.run("test_model")
+
+
+def test_validate_missing_fort56(
+    session_with_model_input: ISynspecSession, test_data_dir, mock_run_command
+) -> None:
+    """Test that validate_working_dir raises error if fort.56 is missing."""
+    session = session_with_model_input
+
+    # Copy fort.55 from test data to working directory
+    fort55 = Fort55.read(test_data_dir)
+    fort55.ichemc = 1
+    fort55.write(session.working_dir)
+
+    # Simulate missing fort.56
+    (session.working_dir / "fort.56").unlink(missing_ok=True)
+
+    with pytest.raises(FileNotFoundError, match="fort.56"):
+        session.run("test_model")
+
+
+def test_validate_unneeded_fort56(
+    session_with_model_input: ISynspecSession, test_data_dir, mock_run_command
+) -> None:
+    """Test that validate_working_dir does not raise error if fort.56 is unneeded."""
+    session = session_with_model_input
+
+    # Copy fort.55 from test data to working directory
+    fort55 = Fort55.read(test_data_dir)
+    fort55.ichemc = 0  # Set ichemc to 0 to indicate fort.56 is not needed
+    fort55.write(session.working_dir)
+
+    # Simulate missing fort.56
+    (session.working_dir / "fort.56").unlink(missing_ok=True)
+
+    # Should not raise an error
+    session.run("test_model")
+
+
+def test_validate_missing_fort19(
+    session_with_model_input: ISynspecSession, mock_run_command
+) -> None:
+    """Test that validate_working_dir raises error if fort.19 is missing."""
+    session = session_with_model_input
+
+    # Simulate missing fort.19
+    (session.working_dir / "fort.19").unlink(missing_ok=True)
+
+    with pytest.raises(FileNotFoundError, match="fort.19"):
+        session.run("test_model")
