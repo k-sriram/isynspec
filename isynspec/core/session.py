@@ -8,7 +8,12 @@ from typing import Any, Self, Type
 
 from isynspec.core.config import load_config
 from isynspec.io.execution import ExecutionConfig, SynspecExecutor
+from isynspec.io.fort7 import Fort7
+from isynspec.io.fort16 import Fort16
+from isynspec.io.fort17 import Fort17
+from isynspec.io.fort19 import Fort19
 from isynspec.io.fort55 import Fort55
+from isynspec.io.fort56 import Fort56
 from isynspec.io.input import InputData
 from isynspec.io.workdir import WorkingDirConfig, WorkingDirectory, WorkingDirStrategy
 
@@ -276,16 +281,128 @@ class ISynspecSession:
         """Get the current working directory.
 
         Returns:
-            Path to the current working directory.
+            Path to the current working directory
 
         Raises:
-            RuntimeError: If session is not initialized.
+            RuntimeError: If session is not initialized
         """
         if not self._working_dir:
-            raise RuntimeError(
-                "Session not initialized. Use with-statement or call init()"
-            )
+            raise RuntimeError("Session not initialized")
         return self._working_dir.path
+
+    def read_fort7(self) -> Fort7:
+        """Read and parse the fort.7 file from the working directory.
+
+        This is an output file written by SYNSPEC containing the computed spectrum.
+
+        Returns:
+            Fort7: Contents of the fort.7 file
+
+        Raises:
+            RuntimeError: If session is not initialized
+            FileNotFoundError: If fort.7 does not exist
+        """
+        return Fort7.read(directory=self.working_dir)
+
+    def read_fort16(self) -> Fort16:
+        """Read and parse the fort.16 file from the working directory.
+
+        This is an output file written by SYNSPEC containing equivalent widths.
+
+        Returns:
+            Fort16: Contents of the fort.16 file
+
+        Raises:
+            RuntimeError: If session is not initialized
+            FileNotFoundError: If fort.16 does not exist
+        """
+        return Fort16.read(directory=self.working_dir)
+
+    def read_fort17(self) -> Fort17:
+        """Read and parse the fort.17 file from the working directory.
+
+        This is an output file written by SYNSPEC containing continuum data.
+
+        Returns:
+            Fort17: Contents of the fort.17 file
+
+        Raises:
+            RuntimeError: If session is not initialized
+            FileNotFoundError: If fort.17 does not exist
+        """
+        return Fort17.read(directory=self.working_dir)
+
+    def read_fort19(self) -> Fort19:
+        """Read and parse the fort.19 file from the working directory.
+
+        Returns:
+            Fort19: Contents of the fort.19 file
+
+        Raises:
+            RuntimeError: If session is not initialized
+            FileNotFoundError: If fort.19 does not exist
+        """
+        return Fort19.read(directory=self.working_dir)
+
+    def write_fort19(self, data: Fort19) -> None:
+        """Write data to fort.19 in the working directory.
+
+        Args:
+            data: Fort19 instance to write
+
+        Raises:
+            RuntimeError: If session is not initialized
+            OSError: If writing fails
+        """
+        data.write(directory=self.working_dir)
+
+    def read_fort55(self) -> Fort55:
+        """Read and parse the fort.55 file from the working directory.
+
+        Returns:
+            Fort55: Contents of the fort.55 file
+
+        Raises:
+            RuntimeError: If session is not initialized
+            FileNotFoundError: If fort.55 does not exist
+        """
+        return Fort55.read(directory=self.working_dir)
+
+    def write_fort55(self, data: Fort55) -> None:
+        """Write data to fort.55 in the working directory.
+
+        Args:
+            data: Fort55 instance to write
+
+        Raises:
+            RuntimeError: If session is not initialized
+            OSError: If writing fails
+        """
+        data.write(directory=self.working_dir)
+
+    def read_fort56(self) -> Fort56:
+        """Read and parse the fort.56 file from the working directory.
+
+        Returns:
+            Fort56: Contents of the fort.56 file
+
+        Raises:
+            RuntimeError: If session is not initialized
+            FileNotFoundError: If fort.56 does not exist
+        """
+        return Fort56.read(directory=self.working_dir)
+
+    def write_fort56(self, data: Fort56) -> None:
+        """Write data to fort.56 in the working directory.
+
+        Args:
+            data: Fort56 instance to write
+
+        Raises:
+            RuntimeError: If session is not initialized
+            OSError: If writing fails
+        """
+        data.write(directory=self.working_dir)
 
     def init(self) -> None:
         """Initialize the SYNSPEC session.

@@ -87,7 +87,7 @@ class Fort19:
             for line in self.lines:
                 f.write(str(line))
 
-    def to_dataframe(self) -> pd.DataFrame:
+    def to_dataframe(self) -> "pd.DataFrame":
         """Convert the line list to a pandas DataFrame.
 
         This method requires pandas to be installed. The DataFrame will contain
