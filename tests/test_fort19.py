@@ -251,3 +251,31 @@ def test_fort19_write_no_directory(basic_lines):
 
     with pytest.raises(ValueError, match="No directory specified"):
         fort19.write()
+
+
+def test_to_dataframe(basic_lines):
+    """Test to_dataframe method with pandas available."""
+    pytest.importorskip("pandas")
+    import pandas as pd
+
+    fort19 = Fort19(lines=basic_lines)
+    df = fort19.to_dataframe()
+
+    # Check that we got a DataFrame
+    assert isinstance(df, pd.DataFrame)
+
+    # Check that all lines are represented
+    assert len(df) == len(basic_lines)
+
+    # Check that all fields are present
+    from dataclasses import fields
+
+    expected_fields = {field.name for field in fields(Line)}
+
+    # Check all columns exist
+    assert set(df.columns) == expected_fields
+
+    # Check values match
+    for i, line in enumerate(basic_lines):
+        for field in expected_fields:
+            assert df.iloc[i][field] == getattr(line, field)

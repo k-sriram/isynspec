@@ -6,9 +6,12 @@ which contain spectral line data in the inilin format.
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Self
+from typing import TYPE_CHECKING, Self
 
 from isynspec.io.line import Line
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 
 @dataclass
@@ -83,3 +86,37 @@ class Fort19:
         with open(directory / "fort.19", "w") as f:
             for line in self.lines:
                 f.write(str(line))
+
+    def to_dataframe(self) -> pd.DataFrame:
+        """Convert the line list to a pandas DataFrame.
+
+        This method requires pandas to be installed. The DataFrame will contain
+        all attributes of each Line object as columns.
+
+        Returns:
+            pandas.DataFrame: DataFrame containing the line data.
+                Each row represents a spectral line.
+
+        Raises:
+            ImportError: If pandas is not installed
+        """
+        try:
+            import pandas as pd
+        except ImportError:
+            raise ImportError(
+                "pandas is required for DataFrame conversion. "
+                "Install it with: pip install pandas"
+            )
+
+        # Get all the fields from the dataclass
+        from dataclasses import fields
+
+        line_fields = [field.name for field in fields(Line)]
+
+        # Convert each line to a dictionary
+        data = [
+            {field: getattr(line, field) for field in line_fields}
+            for line in self.lines
+        ]
+
+        return pd.DataFrame(data)
