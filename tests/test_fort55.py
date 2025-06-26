@@ -182,3 +182,63 @@ def test_read_fort55(test_data_dir: Path):
     assert config.inmod == ModelType.TLUSTY
     assert config.ifreq == RadiativeTransferSolver.DFE
     assert config.vtb is None
+
+
+def test_fort55_with_default_directory(tmp_path: Path):
+    """Test Fort55 initialization with default directory and its usage."""
+    config = Fort55(
+        alam0=4000.0,
+        alast=4100.0,
+        cutof0=0.001,
+        relop=1e-4,
+        space=0.01,
+        directory=tmp_path,
+    )
+
+    # Write using default directory
+    config.write()
+    assert (tmp_path / FILENAME).exists()
+
+    # Read back with explicit directory
+    read_config = Fort55.read(directory=tmp_path)
+    assert read_config.alam0 == config.alam0
+    assert read_config.directory == tmp_path
+
+    # Write to a different directory
+    other_dir = tmp_path / "other"
+    other_dir.mkdir()
+    config.write(directory=other_dir)
+    assert (other_dir / FILENAME).exists()
+
+
+def test_fort55_read_with_path(tmp_path: Path):
+    """Test Fort55 reading with explicit path."""
+    config = Fort55(
+        alam0=4000.0,
+        alast=4100.0,
+        cutof0=0.001,
+        relop=1e-4,
+        space=0.01,
+    )
+
+    file_path = tmp_path / FILENAME
+    config.write(tmp_path)
+
+    # Read using path parameter
+    read_config = Fort55.read(path=file_path)
+    assert read_config.alam0 == config.alam0
+    assert read_config.directory is None
+
+
+def test_fort55_write_no_directory():
+    """Test Fort55 write with no directory specified."""
+    config = Fort55(
+        alam0=4000.0,
+        alast=4100.0,
+        cutof0=0.001,
+        relop=1e-4,
+        space=0.01,
+    )
+
+    with pytest.raises(ValueError, match="No directory specified"):
+        config.write()

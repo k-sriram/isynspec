@@ -210,3 +210,44 @@ def test_fort19_read(tmp_path):
     assert line2.ilwn is None
     assert line2.iun is None
     assert line2.iprf is None
+
+
+def test_fort19_with_default_directory(tmp_path, basic_lines):
+    """Test Fort19 initialization with default directory and its usage."""
+    fort19 = Fort19(lines=basic_lines, directory=tmp_path)
+
+    # Write using default directory
+    fort19.write()
+    assert (tmp_path / "fort.19").exists()
+
+    # Read back with explicit directory
+    read_fort19 = Fort19.read(directory=tmp_path)
+    assert len(read_fort19.lines) == len(fort19.lines)
+    assert read_fort19.directory == tmp_path
+
+    # Write to a different directory
+    other_dir = tmp_path / "other"
+    other_dir.mkdir()
+    fort19.write(directory=other_dir)
+    assert (other_dir / "fort.19").exists()
+
+
+def test_fort19_read_with_path(tmp_path, basic_lines):
+    """Test Fort19 reading with explicit path."""
+    fort19 = Fort19(lines=basic_lines)
+
+    file_path = tmp_path / "fort.19"
+    fort19.write(tmp_path)
+
+    # Read using path parameter
+    read_fort19 = Fort19.read(path=file_path)
+    assert len(read_fort19.lines) == len(fort19.lines)
+    assert read_fort19.directory is None
+
+
+def test_fort19_write_no_directory(basic_lines):
+    """Test Fort19 write with no directory specified."""
+    fort19 = Fort19(lines=basic_lines)
+
+    with pytest.raises(ValueError, match="No directory specified"):
+        fort19.write()

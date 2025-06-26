@@ -300,7 +300,7 @@ class Fort55:
         return params
 
     @classmethod
-    def read(cls, directory: Path) -> Self:
+    def read(cls, directory: Path | None = None, *, path: Path | None = None) -> Self:
         """Read configuration from fort.55 file.
 
         Args:
@@ -316,7 +316,10 @@ class Fort55:
             FileNotFoundError: If file does not exist
             ValueError: If file format is invalid or no path is specified
         """
-        path = directory / FILENAME
+        if path is None:
+            if directory is None:
+                raise ValueError("Either directory or path must be specified")
+            path = directory / FILENAME
 
         with open(path) as f:
             reader = FortranReader(f.read())

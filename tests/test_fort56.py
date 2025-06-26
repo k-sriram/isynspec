@@ -82,3 +82,53 @@ def test_fort56_file_not_found(tmp_path: Path):
     """Test error handling when fort.56 file does not exist."""
     with pytest.raises(FileNotFoundError):
         Fort56.read(tmp_path)
+
+
+def test_fort56_with_default_directory(tmp_path: Path):
+    """Test Fort56 initialization with default directory and its usage."""
+    changes = [
+        AtomicAbundance(atomic_number=26, abundance=7.5),
+        AtomicAbundance(atomic_number=6, abundance=8.2),
+    ]
+    fort56 = Fort56(changes=changes, directory=tmp_path)
+
+    # Write using default directory
+    fort56.write()
+    assert (tmp_path / FILENAME).exists()
+
+    # Read back with explicit directory
+    read_fort56 = Fort56.read(directory=tmp_path)
+    assert len(read_fort56.changes) == len(fort56.changes)
+    assert read_fort56.directory == tmp_path
+
+    # Write to a different directory
+    other_dir = tmp_path / "other"
+    other_dir.mkdir()
+    fort56.write(directory=other_dir)
+    assert (other_dir / FILENAME).exists()
+
+
+def test_fort56_read_with_path(tmp_path: Path):
+    """Test Fort56 reading with explicit path."""
+    changes = [
+        AtomicAbundance(atomic_number=26, abundance=7.5),
+        AtomicAbundance(atomic_number=6, abundance=8.2),
+    ]
+    fort56 = Fort56(changes=changes)
+
+    file_path = tmp_path / FILENAME
+    fort56.write(tmp_path)
+
+    # Read using path parameter
+    read_fort56 = Fort56.read(path=file_path)
+    assert len(read_fort56.changes) == len(fort56.changes)
+    assert read_fort56.directory is None
+
+
+def test_fort56_write_no_directory():
+    """Test Fort56 write with no directory specified."""
+    changes = [AtomicAbundance(atomic_number=26, abundance=7.5)]
+    fort56 = Fort56(changes=changes)
+
+    with pytest.raises(ValueError, match="No directory specified"):
+        fort56.write()
