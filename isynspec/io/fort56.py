@@ -88,6 +88,43 @@ class Fort56:
         except (ValueError, IndexError, StopIteration) as e:
             raise ValueError(f"Invalid fort.56 file format: {e}")
 
+    @classmethod
+    def from_tuples(
+        cls, tuples: list[tuple[int, float]], *, directory: Path | None = None
+    ) -> Self:
+        """Create a Fort56 instance from a list of (atomic_number, abundance) tuples.
+
+        Args:
+            tuples: List of tuples, each containing (atomic_number, abundance)
+            directory: Optional directory for read/write operations
+
+        Returns:
+            A new Fort56 instance with the specified abundance changes
+
+        Raises:
+            ValueError: If any atomic number is not a positive integer
+        """
+        changes = []
+        for atomic_number, abundance in tuples:
+            if not isinstance(atomic_number, int) or atomic_number <= 0:
+                raise ValueError(
+                    f"Atomic number must be a positive integer, got {atomic_number}"
+                )
+            changes.append(
+                AtomicAbundance(atomic_number=atomic_number, abundance=abundance)
+            )
+        return cls(changes=changes, directory=directory)
+
+    @property
+    def as_tuples(self) -> list[tuple[int, float]]:
+        """Get the abundance changes as a list of (atomic_number, abundance) tuples.
+
+        Returns:
+            List of tuples, each containing (atomic_number, abundance).
+            The list is ordered the same as the changes list.
+        """
+        return [(change.atomic_number, change.abundance) for change in self.changes]
+
     def write(self, directory: Path | None = None) -> None:
         """Write Fort56 data to file.
 

@@ -132,3 +132,55 @@ def test_fort56_write_no_directory():
 
     with pytest.raises(ValueError, match="No directory specified"):
         fort56.write()
+
+
+def test_fort56_as_tuples():
+    """Test the as_tuples property."""
+    # Create a Fort56 instance with multiple changes
+    changes = [
+        AtomicAbundance(atomic_number=26, abundance=7.5),  # Iron
+        AtomicAbundance(atomic_number=6, abundance=8.4),  # Carbon
+        AtomicAbundance(atomic_number=8, abundance=8.7),  # Oxygen
+    ]
+    fort56 = Fort56(changes=changes)
+
+    # Get the tuples
+    tuples = fort56.as_tuples
+
+    # Verify the tuples match the original data
+    assert len(tuples) == len(changes)
+    for (atomic_number, abundance), change in zip(tuples, changes):
+        assert atomic_number == change.atomic_number
+        assert abundance == change.abundance
+
+    # Verify the order is preserved
+    assert tuples == [(26, 7.5), (6, 8.4), (8, 8.7)]
+
+
+def test_fort56_from_tuples():
+    """Test creating Fort56 from tuples."""
+    # Test with valid data
+    tuples = [(26, 7.5), (6, 8.4), (8, 8.7)]
+    fort56 = Fort56.from_tuples(tuples)
+    assert len(fort56.changes) == 3
+    assert fort56.changes[0].atomic_number == 26
+    assert fort56.changes[0].abundance == 7.5
+    assert fort56.changes[1].atomic_number == 6
+    assert fort56.changes[1].abundance == 8.4
+    assert fort56.changes[2].atomic_number == 8
+    assert fort56.changes[2].abundance == 8.7
+
+    # Test with empty list
+    fort56 = Fort56.from_tuples([])
+    assert len(fort56.changes) == 0
+
+    # Test with invalid atomic numbers
+    with pytest.raises(ValueError, match="Atomic number must be a positive integer"):
+        Fort56.from_tuples([(0, 7.5)])
+    with pytest.raises(ValueError, match="Atomic number must be a positive integer"):
+        Fort56.from_tuples([(-1, 7.5)])
+
+    # Test with directory
+    directory = Path("test/dir")
+    fort56 = Fort56.from_tuples(tuples, directory=directory)
+    assert fort56.directory == directory
