@@ -1,5 +1,6 @@
 """Configuration management for SYNSPEC working directories."""
 
+import shutil
 import tempfile
 from dataclasses import dataclass
 from enum import StrEnum
@@ -124,8 +125,6 @@ class WorkingDirectory:
 
     def cleanup(self) -> None:
         """Clean up temporary resources if necessary."""
-        import shutil
-
         if (
             self._temp_dir is not None
             and self.config.strategy == WorkingDirStrategy.TEMPORARY

@@ -418,12 +418,7 @@ class ISynspecSession:
             self._working_dir.path
 
     def cleanup(self) -> None:
-        """Clean up the session resources.
-
-        Args:
-            model: Base name of the model files (without extension). Required if using
-                  file management with paths containing {model} placeholders.
-        """
+        """Clean up the session resources."""
         if self._working_dir:
             self._working_dir.cleanup()
             self._working_dir = None
