@@ -6,6 +6,8 @@ from pathlib import Path
 from types import TracebackType
 from typing import Any, Self, Type
 
+import numpy as np
+
 from isynspec.core.config import load_config
 from isynspec.io.execution import ExecutionConfig, SynspecExecutor
 from isynspec.io.fort7 import Fort7
@@ -403,6 +405,73 @@ class ISynspecSession:
             OSError: If writing fails
         """
         data.write(directory=self.working_dir)
+
+    def read_spectrum(self) -> tuple[np.ndarray, np.ndarray]:
+        """Read the computed spectrum from fort.7.
+
+        Returns:
+            Tuple of (wavelengths, fluxes) arrays
+
+        Raises:
+            RuntimeError: If session is not initialized
+            FileNotFoundError: If fort.7 does not exist
+        """
+        fort7 = self.read_fort7()
+        return fort7.wavelength, fort7.flux
+
+    def read_continuum(self) -> tuple[np.ndarray, np.ndarray]:
+        """Read the continuum data from fort.17.
+
+        Returns:
+            Tuple of (wavelengths, continuum fluxes) arrays
+
+        Raises:
+            RuntimeError: If session is not initialized
+            FileNotFoundError: If fort.17 does not exist
+        """
+        fort17 = self.read_fort17()
+        return fort17.wavelength, fort17.flux
+
+    def read_normalized_spectrum(self) -> tuple[np.ndarray, np.ndarray]:
+        """Read the normalized spectrum from fort.7.
+
+        This normalizes the fluxes by the continuum values.
+
+        Returns:
+            Tuple of (wavelengths, normalized fluxes) arrays
+
+        Raises:
+            RuntimeError: If session is not initialized
+            FileNotFoundError: If fort.7 or fort.17 does not exist
+        """
+        wavelengths, fluxes = self.read_spectrum()
+        cont_wavelength, continuum_fluxes = self.read_continuum()
+        cont_on_fluxbase = np.interp(wavelengths, cont_wavelength, continuum_fluxes)
+        normalized_fluxes = fluxes / cont_on_fluxbase
+        return wavelengths, normalized_fluxes
+
+    def compute_equivalent_width(self, wl0: float, wl1: float) -> float:
+        """Compute the equivalent width of the spectrum between two wavelengths.
+
+        This uses the normalized spectrum to calculate the equivalent width.
+
+        Args:
+            wl0: Start wavelength
+            wl1: End wavelength
+
+        Returns:
+            float: Equivalent width in Angstroms
+        """
+        wavelengths, normalized_fluxes = self.read_normalized_spectrum()
+        if wl0 < wavelengths[0] or wl1 > wavelengths[-1]:
+            raise ValueError("Wavelength range is outside the spectrum limits.")
+        mask = (wavelengths >= wl0) & (wavelengths <= wl1)
+        if not np.any(mask):
+            raise ValueError("Wavelength range is outside the spectrum limits.")
+        equivalent_width: float = np.trapz(
+            1 - normalized_fluxes[mask], wavelengths[mask]
+        )
+        return equivalent_width
 
     def init(self) -> None:
         """Initialize the SYNSPEC session.
