@@ -9,8 +9,8 @@ This project aims to modernize the SYNSPEC spectral synthesis program by creatin
 1. Create a Python wrapper library that:
    - [✓] Handles all fort.n file I/O operations transparently
    - [✓] Manages SYNSPEC execution and configuration
-   - [In Progress] Provides a clean, intuitive API for interacting with SYNSPEC
-   - [TODO] Processes and returns results in modern data formats (e.g., numpy arrays, pandas DataFrames)
+   - [✓] Provides a clean, intuitive API for interacting with SYNSPEC
+   - [✓] Processes and returns results in modern data formats (e.g., numpy arrays)
 
 2. Implement core functionality:
    - [✓] Input file generation and validation
@@ -18,24 +18,26 @@ This project aims to modernize the SYNSPEC spectral synthesis program by creatin
    - [✓] SYNSPEC execution control
    - [✓] Output file parsing and data extraction
    - [In Progress] Error handling and logging
+   - [In Progress] Documentation and type hints
 
 3. Create data structures for:
-   - Model atmosphere parameters
-   - Atomic and molecular line lists
-   - Spectral synthesis parameters
-   - Output spectra
+   - [✓] Model atmosphere parameters (via fort.8 and input handling)
+   - [✓] Atomic and molecular line lists (Line class, Fort19)
+   - [✓] Spectral synthesis parameters (Fort55, Fort56)
+   - [✓] Output spectra (Fort7, Fort17)
 
 ### Phase 2: Additional Features
 1. Data Visualization:
-   - Built-in plotting capabilities using matplotlib
-   - Interactive spectrum visualization
-   - Comparison tools for observed vs. synthetic spectra
+   - [TODO] Built-in plotting capabilities using matplotlib
+   - [TODO] Interactive spectrum visualization
 
 2. Documentation and Examples:
-   - Comprehensive API documentation
-   - Jupyter notebook tutorials
-   - Example scripts for common use cases
-   - Migration guide for existing SYNSPEC users
+   - [In Progress] Type hints and docstrings
+   - [TODO] API documentation with Sphinx
+   - [TODO] Quick-start guide
+   - [TODO] Jupyter notebook tutorials
+   - [TODO] Example scripts for common tasks
+   - [TODO] Migration guide from original SYNSPEC
 
 ### Phase 3: GUI Development (Future)
 1. Create a graphical interface that:
@@ -56,27 +58,26 @@ This project aims to modernize the SYNSPEC spectral synthesis program by creatin
 isynspec/
 ├── __init__.py
 ├── core/
-│   ├── synspec.py          # Main SYNSPEC interface
-│   ├── config.py           # Configuration management
-│   └── runner.py          # SYNSPEC execution handling
+│   ├── session.py         # Main SYNSPEC session management
+│   └── config.py          # Configuration management
 ├── io/
-│   ├── input_handler.py    # Input file generation
-│   ├── output_handler.py   # Output file parsing
-│   └── fort_files.py       # Fort.n file management
-├── models/
-│   ├── atmosphere.py       # Atmosphere model classes
-│   ├── linelist.py         # Line list management
-│   └── spectrum.py         # Spectrum data structures
+│   ├── input.py          # Model input handling
+│   ├── execution.py      # SYNSPEC execution
+│   ├── workdir.py        # Working directory management
+│   ├── line.py          # Spectral line data structure
+│   ├── fort7.py         # Spectrum output handling
+│   ├── fort16.py        # Equivalent widths
+│   ├── fort17.py        # Continuum data
+│   ├── fort19.py        # Line list handling
+│   ├── fort55.py        # Synthesis parameters
+│   └── fort56.py        # Abundance changes
+├── models/              # Future model abstractions
 ├── utils/
-│   ├── validators.py       # Input validation
-│   ├── converters.py       # Data format conversion
-│   └── plotting.py         # Visualization utilities
-├── tests/                  # Test suite
-│   ├── unit/              # Unit tests matching package structure
-│   ├── integration/       # End-to-end and integration tests
-│   ├── fixtures/          # Test data and mock objects
-│   └── conftest.py        # pytest configuration
-└── gui/                    # Future GUI components
+│   └── fortio.py       # Fortran I/O utilities
+└── tests/              # Comprehensive test suite
+    ├── test_*.py      # Unit and integration tests
+    ├── conftest.py    # pytest configuration
+    └── data/          # Test data files
 ```
 
 ## Testing Strategy
@@ -85,21 +86,22 @@ isynspec/
 1. Unit Testing
    - [✓] Use pytest for test framework
    - [✓] Test each component in isolation
-   - [In Progress] Write tests before implementing features
-   - [In Progress] Implement mock SYNSPEC responses for testing
-   - [TODO] Maintain high test coverage (target: 90%+)
+   - [✓] Write tests before implementing features
+   - [✓] Implement test fixtures and data
+   - [In Progress] Expand test coverage (current: ~80%)
 
 2. Integration Testing
-   - Test interactions between components
-   - Verify SYNSPEC input/output handling
-   - Test full workflow scenarios
-   - Include performance benchmarks
+   - [✓] Test interactions between components
+   - [✓] Verify SYNSPEC input/output handling
+   - [✓] Test file I/O operations
+   - [TODO] Test full workflow scenarios
+   - [TODO] Add performance benchmarks
 
 3. Test Data Management
-   - Maintain suite of test input files
-   - Create mock SYNSPEC outputs
-   - Version control test data
-   - Document test data format and usage
+   - [✓] Maintain suite of test input files (test_model.5, test_model.7)
+   - [✓] Test data for fort.n files
+   - [✓] Version controlled test data
+   - [In Progress] Document test data format and usage
 
 4. Continuous Integration
    - Automated test runs on commits
@@ -116,15 +118,17 @@ isynspec/
 
 ### Dependencies
 - Core dependencies:
-  - NumPy: Numerical computations
-  - Pandas: Data management
-  - Matplotlib: Plotting
-  - PyYAML: Configuration handling
-  - Click: CLI interface
+  - NumPy: Array operations for spectra and line lists
+  - typing_extensions: Enhanced type hints
+  - dataclasses: Data structure definitions
+  - pathlib: Path operations
+  - pytest: Testing framework
   - Fortran compiler (gfortran)
 
 - Optional dependencies:
-  - Jupyter: Interactive examples
+  - Pandas: Dataframe exports (fort.19)
+  - Matplotlib: Future plotting capabilities
+  - Jupyter: Future interactive examples
   - Streamlit/PyQt: Future GUI development
 
 ## Development Roadmap
@@ -195,16 +199,23 @@ isynspec/
 ## Future Considerations
 
 1. Performance Optimization
-   - Parallel processing for batch calculations
-   - Caching mechanisms
-   - Memory optimization
+   - [TODO] Parallel processing for batch calculations
+   - [TODO] Caching of intermediate results
+   - [TODO] Memory-efficient line list handling
+   - [TODO] Optimized file I/O operations
 
 2. Additional Features
-   - Integration with other astronomical tools
-   - Support for different model atmosphere formats
-   - Batch processing capabilities
+   - [TODO] Integration with astropy
+   - [TODO] Support for Kurucz/ATLAS model atmospheres
+   - [TODO] Support for MARCS model atmospheres
+   - [TODO] Batch processing for parameter grids
+   - [TODO] Line list management tools
+   - [TODO] Model atmosphere interpolation
 
 3. Community Building
-   - User feedback system
-   - Contributing guidelines
-   - Regular updates and maintenance
+   - [TODO] Documentation website
+   - [TODO] Contributing guidelines
+   - [TODO] Issue templates
+   - [TODO] CI/CD pipeline setup
+   - [TODO] Package distribution (PyPI)
+   - [TODO] Example gallery
